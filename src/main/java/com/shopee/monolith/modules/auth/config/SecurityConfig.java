@@ -53,7 +53,8 @@ public class SecurityConfig {
                     csrf
                             .csrfTokenRepository(tokenRepository)
                             .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                            .ignoringRequestMatchers(request -> !request.getRequestURI().startsWith("/api/auth"));
+                            .ignoringRequestMatchers(request -> !request.getRequestURI().startsWith("/api/auth"))
+                            .ignoringRequestMatchers("/api/auth/oauth2/exchange");
                 })
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .formLogin(form -> form.disable())
@@ -74,6 +75,7 @@ public class SecurityConfig {
                                 "/api/auth/verify",
                                 "/api/auth/oauth2/exchange",
                                 "/v3/api-docs/**",
+                                "/v3/api-docs.yaml",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
                         ).permitAll()
