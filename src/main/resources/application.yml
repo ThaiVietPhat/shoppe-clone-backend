@@ -10,7 +10,7 @@ spring:
     timeout-per-shutdown-phase: 30s
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:5432/shopee_db
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/shopee_db
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
@@ -61,10 +61,11 @@ spring:
             client-id: ${GOOGLE_CLIENT_ID}
             client-secret: ${GOOGLE_CLIENT_SECRET}
             scope: email, profile
-          facebook:
-            client-id: ${FACEBOOK_CLIENT_ID}
-            client-secret: ${FACEBOOK_CLIENT_SECRET}
-            scope: email, public_profile
+          # facebook: disabled — requires Meta business verification
+          # facebook:
+          #   client-id: ${FACEBOOK_CLIENT_ID}
+          #   client-secret: ${FACEBOOK_CLIENT_SECRET}
+          #   scope: email, public_profile
 
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
@@ -159,7 +160,7 @@ app:
       batch-size: 500
       fixed-delay: 1h
     auth-cookie:
-      name: __Secure-refresh_token
+      name: ${AUTH_COOKIE_NAME:__Secure-refresh_token}
       secure: ${AUTH_COOKIE_SECURE:true}
       http-only: true
       same-site: ${AUTH_COOKIE_SAME_SITE:Lax}

@@ -1,6 +1,5 @@
 -- V15: Enable pgvector extension and create product_embeddings table
 -- text-embedding-004 (Google Gemini) produces 768-dimensional vectors
-
 CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE product_embeddings
