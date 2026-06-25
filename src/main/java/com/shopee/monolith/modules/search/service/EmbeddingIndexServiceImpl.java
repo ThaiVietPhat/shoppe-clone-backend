@@ -5,6 +5,7 @@ import com.shopee.monolith.modules.search.repository.ProductEmbeddingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,7 +22,8 @@ public class EmbeddingIndexServiceImpl implements EmbeddingIndexService {
     /** Maximum characters taken from description to keep prompt size bounded. */
     private static final int MAX_DESCRIPTION_CHARS = 500;
 
-    private final EmbeddingModel embeddingModel;
+    // Optional: not every environment configures a Google AI key (e.g. unrelated IT suites).
+    private final ObjectProvider<EmbeddingModel> embeddingModelProvider;
     private final ProductEmbeddingRepository productEmbeddingRepository;
     private final com.shopee.monolith.common.observability.DemoMetrics demoMetrics;
 
@@ -34,6 +36,10 @@ public class EmbeddingIndexServiceImpl implements EmbeddingIndexService {
             return;
         }
         try {
+            EmbeddingModel embeddingModel = embeddingModelProvider.getIfAvailable();
+            if (embeddingModel == null) {
+                throw new IllegalStateException("Embedding model is not available");
+            }
             float[] embedding = embeddingModel.embed(text);
             String pgvectorLiteral = toVectorLiteral(embedding);
             productEmbeddingRepository.upsert(event.productId(), pgvectorLiteral, MODEL_VERSION, Instant.now());

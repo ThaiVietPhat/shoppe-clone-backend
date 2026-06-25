@@ -8,6 +8,7 @@ import com.shopee.monolith.modules.search.repository.ProductEmbeddingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,7 +26,8 @@ public class SemanticSearchServiceImpl implements SemanticSearchService {
     /** Fetch more candidates than requested to account for revalidation filtering. */
     private static final int CANDIDATE_MULTIPLIER = 3;
 
-    private final EmbeddingModel embeddingModel;
+    // Optional: not every environment configures a Google AI key (e.g. unrelated IT suites).
+    private final ObjectProvider<EmbeddingModel> embeddingModelProvider;
     private final ProductEmbeddingRepository productEmbeddingRepository;
     private final ProductService productService;
     private final com.shopee.monolith.common.observability.DemoMetrics demoMetrics;
@@ -45,6 +47,10 @@ public class SemanticSearchServiceImpl implements SemanticSearchService {
     }
 
     private SearchResponse searchWithEmbedding(String query, int page, int size, int candidateLimit) {
+        EmbeddingModel embeddingModel = embeddingModelProvider.getIfAvailable();
+        if (embeddingModel == null) {
+            throw new IllegalStateException("Embedding model is not available");
+        }
         float[] queryEmbedding = embeddingModel.embed(query);
         String vectorLiteral = EmbeddingIndexServiceImpl.toVectorLiteral(queryEmbedding);
 

@@ -6,10 +6,10 @@ import com.shopee.monolith.modules.search.repository.ProductEmbeddingRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -34,12 +35,14 @@ class EmbeddingIndexServiceTest {
     private EmbeddingModel embeddingModel;
 
     @Mock
+    private ObjectProvider<EmbeddingModel> embeddingModelProvider;
+
+    @Mock
     private ProductEmbeddingRepository productEmbeddingRepository;
 
     @Mock
     private com.shopee.monolith.common.observability.DemoMetrics demoMetrics;
 
-    @InjectMocks
     private EmbeddingIndexServiceImpl embeddingIndexService;
 
     private UUID productId;
@@ -47,6 +50,8 @@ class EmbeddingIndexServiceTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(embeddingModelProvider.getIfAvailable()).thenReturn(embeddingModel);
+        embeddingIndexService = new EmbeddingIndexServiceImpl(embeddingModelProvider, productEmbeddingRepository, demoMetrics);
         productId = UUID.randomUUID();
         shopId = UUID.randomUUID();
     }

@@ -8,11 +8,12 @@ import com.shopee.monolith.modules.product.repository.ProductRepository;
 import com.shopee.monolith.modules.product.service.ProductService;
 import com.shopee.monolith.modules.search.dto.SearchRequest;
 import com.shopee.monolith.modules.search.dto.SearchResponse;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -33,6 +34,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -48,6 +50,9 @@ class SearchServiceFallbackTest {
     private ElasticsearchOperations elasticsearchOperations;
 
     @Mock
+    private ObjectProvider<ElasticsearchOperations> elasticsearchOperationsProvider;
+
+    @Mock
     private ProductService productService;
 
     @Mock
@@ -56,8 +61,13 @@ class SearchServiceFallbackTest {
     @Mock
     private com.shopee.monolith.common.observability.DemoMetrics demoMetrics;
 
-    @InjectMocks
     private SearchServiceImpl searchService;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(elasticsearchOperationsProvider.getIfAvailable()).thenReturn(elasticsearchOperations);
+        searchService = new SearchServiceImpl(elasticsearchOperationsProvider, productService, productRepository, demoMetrics);
+    }
 
     // ===================== Elasticsearch success path =====================
 

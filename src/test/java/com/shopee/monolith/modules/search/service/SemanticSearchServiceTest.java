@@ -6,12 +6,13 @@ import com.shopee.monolith.modules.product.entity.ProductStatus;
 import com.shopee.monolith.modules.product.service.ProductService;
 import com.shopee.monolith.modules.search.dto.SearchResponse;
 import com.shopee.monolith.modules.search.repository.ProductEmbeddingRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.math.BigDecimal;
 import java.util.Collections;
@@ -25,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,6 +42,9 @@ class SemanticSearchServiceTest {
     private EmbeddingModel embeddingModel;
 
     @Mock
+    private ObjectProvider<EmbeddingModel> embeddingModelProvider;
+
+    @Mock
     private ProductEmbeddingRepository productEmbeddingRepository;
 
     @Mock
@@ -48,8 +53,14 @@ class SemanticSearchServiceTest {
     @Mock
     private com.shopee.monolith.common.observability.DemoMetrics demoMetrics;
 
-    @InjectMocks
     private SemanticSearchServiceImpl semanticSearchService;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(embeddingModelProvider.getIfAvailable()).thenReturn(embeddingModel);
+        semanticSearchService = new SemanticSearchServiceImpl(
+                embeddingModelProvider, productEmbeddingRepository, productService, demoMetrics);
+    }
 
     // ===================== Happy path =====================
 

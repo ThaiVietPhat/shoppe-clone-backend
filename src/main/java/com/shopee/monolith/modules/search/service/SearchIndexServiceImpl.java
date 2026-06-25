@@ -4,6 +4,7 @@ import com.shopee.monolith.modules.product.event.ProductCatalogSnapshotEvent;
 import com.shopee.monolith.modules.search.document.ProductDocument;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.IndexOperations;
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
@@ -16,14 +17,16 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class SearchIndexServiceImpl implements SearchIndexService {
 
-    private final ElasticsearchOperations elasticsearchOperations;
+    // Optional: tests disable Elasticsearch autoconfiguration to speed up unrelated IT suites.
+    private final ObjectProvider<ElasticsearchOperations> elasticsearchOperationsProvider;
 
     private static final IndexCoordinates PRODUCTS_INDEX = IndexCoordinates.of("products");
 
     @Override
     public void upsertDocument(ProductCatalogSnapshotEvent event) {
         try {
-            ensureIndex();
+            ElasticsearchOperations elasticsearchOperations = requireElasticsearch();
+            ensureIndex(elasticsearchOperations);
             ProductDocument doc = ProductDocument.builder()
                     .productId(event.productId().toString())
                     .name(event.name())
@@ -51,14 +54,22 @@ public class SearchIndexServiceImpl implements SearchIndexService {
     @Override
     public void deleteDocument(UUID productId) {
         try {
-            elasticsearchOperations.delete(productId.toString(), PRODUCTS_INDEX);
+            requireElasticsearch().delete(productId.toString(), PRODUCTS_INDEX);
             log.debug("ES delete OK productId={}", productId);
         } catch (Exception ex) {
             log.warn("ES delete failed productId={} — will retry via publication replay", productId, ex);
         }
     }
 
-    private void ensureIndex() {
+    private ElasticsearchOperations requireElasticsearch() {
+        ElasticsearchOperations operations = elasticsearchOperationsProvider.getIfAvailable();
+        if (operations == null) {
+            throw new IllegalStateException("Elasticsearch is not available");
+        }
+        return operations;
+    }
+
+    private void ensureIndex(ElasticsearchOperations elasticsearchOperations) {
         IndexOperations indexOps = elasticsearchOperations.indexOps(ProductDocument.class);
         try {
             if (!indexOps.exists()) {

@@ -13,6 +13,7 @@ import com.shopee.monolith.modules.search.dto.SearchRequest;
 import com.shopee.monolith.modules.search.dto.SearchResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -34,7 +35,8 @@ public class SearchServiceImpl implements SearchService {
 
     private static final String DEGRADED_REASON_ES = "ELASTICSEARCH_UNAVAILABLE";
 
-    private final ElasticsearchOperations elasticsearchOperations;
+    // Optional: tests disable Elasticsearch autoconfiguration to speed up unrelated IT suites.
+    private final ObjectProvider<ElasticsearchOperations> elasticsearchOperationsProvider;
     private final ProductService productService;
     private final ProductRepository productRepository;
     private final com.shopee.monolith.common.observability.DemoMetrics demoMetrics;
@@ -93,6 +95,10 @@ public class SearchServiceImpl implements SearchService {
                 .withPageable(pageable)
                 .build();
 
+        ElasticsearchOperations elasticsearchOperations = elasticsearchOperationsProvider.getIfAvailable();
+        if (elasticsearchOperations == null) {
+            throw new IllegalStateException("Elasticsearch is not available");
+        }
         SearchHits<ProductDocument> hits = elasticsearchOperations.search(nativeQuery, ProductDocument.class);
         List<UUID> productIds = hits.stream()
                 .map(h -> UUID.fromString(h.getContent().getProductId()))

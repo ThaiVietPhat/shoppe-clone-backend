@@ -2,11 +2,12 @@ package com.shopee.monolith.modules.search.service;
 
 import com.shopee.monolith.modules.product.entity.ProductStatus;
 import com.shopee.monolith.modules.product.event.ProductCatalogSnapshotEvent;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.IndexOperations;
 
@@ -18,6 +19,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -27,8 +29,16 @@ class SearchIndexServiceImplTest {
     @Mock
     private ElasticsearchOperations elasticsearchOperations;
 
-    @InjectMocks
+    @Mock
+    private ObjectProvider<ElasticsearchOperations> elasticsearchOperationsProvider;
+
     private SearchIndexServiceImpl searchIndexService;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(elasticsearchOperationsProvider.getIfAvailable()).thenReturn(elasticsearchOperations);
+        searchIndexService = new SearchIndexServiceImpl(elasticsearchOperationsProvider);
+    }
 
     private final UUID productId = UUID.randomUUID();
     private final UUID shopId = UUID.randomUUID();
