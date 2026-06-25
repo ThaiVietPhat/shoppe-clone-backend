@@ -8,7 +8,6 @@ import com.shopee.monolith.modules.search.repository.ProductEmbeddingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,7 +17,6 @@ import java.util.UUID;
 
 @Slf4j
 @Service
-@ConditionalOnBean(EmbeddingModel.class)
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SemanticSearchServiceImpl implements SemanticSearchService {
