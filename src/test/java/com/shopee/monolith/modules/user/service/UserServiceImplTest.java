@@ -245,4 +245,22 @@ class UserServiceImplTest {
 
         assertEquals(ErrorCode.USER_NOT_FOUND, exception.getErrorCode());
     }
+
+    @Test
+    void promoteToSellerWhenUserIsBuyerShouldUpgradeRole() {
+        when(userRepository.findById(testId)).thenReturn(Optional.of(testUser));
+
+        userService.promoteToSeller(testId);
+
+        assertEquals(Role.SELLER, testUser.getRole());
+    }
+
+    @Test
+    void promoteToSellerWhenUserDoesNotExistShouldThrowException() {
+        when(userRepository.findById(testId)).thenReturn(Optional.empty());
+
+        AppException exception = assertThrows(AppException.class, () -> userService.promoteToSeller(testId));
+
+        assertEquals(ErrorCode.USER_NOT_FOUND, exception.getErrorCode());
+    }
 }

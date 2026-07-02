@@ -58,6 +58,7 @@ public class ShopServiceImpl implements ShopService {
 
         try {
             Shop savedShop = shopRepository.saveAndFlush(shop);
+            userService.promoteToSeller(ownerId);
             return toResponse(savedShop);
         } catch (DataIntegrityViolationException e) {
             throw new AppException(ErrorCode.SHOP_ALREADY_EXISTS);

@@ -21,6 +21,8 @@ public interface UserService {
 
     void activateUser(UUID userId);
 
+    void promoteToSeller(UUID userId);
+
     void lockUser(UUID userId);
 
     Optional<UserAuthenticationData> findAuthenticationDataByOAuth(String provider, String providerUserId);

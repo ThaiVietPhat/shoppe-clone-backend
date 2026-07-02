@@ -136,6 +136,7 @@ class ShopServiceImplTest {
 
         assertEquals(shopResponse, result);
         verify(shopRepository).saveAndFlush(any(Shop.class));
+        verify(userService).promoteToSeller(ownerId);
     }
 
     @Test
@@ -178,6 +179,7 @@ class ShopServiceImplTest {
         AppException ex = assertThrows(AppException.class, () -> shopService.createShop(ownerId, createRequest));
 
         assertEquals(ErrorCode.SHOP_ALREADY_EXISTS, ex.getErrorCode());
+        verify(userService, never()).promoteToSeller(any());
     }
 
     @Test

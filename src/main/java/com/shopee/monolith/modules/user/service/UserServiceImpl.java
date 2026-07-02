@@ -96,6 +96,14 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
+    public void promoteToSeller(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        user.promoteToSeller();
+    }
+
+    @Override
+    @Transactional
     public void lockUser(UUID userId) {
         userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));

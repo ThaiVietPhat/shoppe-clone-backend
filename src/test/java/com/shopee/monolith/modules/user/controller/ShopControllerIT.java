@@ -94,6 +94,9 @@ class ShopControllerIT extends BasePostgresRedisIntegrationTest {
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.name").value("Official Active Shop"))
                 .andExpect(jsonPath("$.data.ownerId").value(activeUser.getId().toString()));
+
+        User promotedUser = userRepository.findById(activeUser.getId()).orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals(Role.SELLER, promotedUser.getRole());
     }
 
     @Test

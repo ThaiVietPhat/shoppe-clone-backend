@@ -45,6 +45,12 @@ public class User extends BaseEntity {
         this.status = UserStatus.ACTIVE;
     }
 
+    public void promoteToSeller() {
+        if (this.role == Role.BUYER) {
+            this.role = Role.SELLER;
+        }
+    }
+
     @jakarta.persistence.PrePersist
     @jakarta.persistence.PreUpdate
     protected void normalizeEmailBeforeSave() {
