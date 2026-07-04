@@ -48,13 +48,14 @@ public class NotificationController {
             content = @Content(schema = @Schema(implementation = SwaggerResponses.ApiResponseVoid.class)))
     @GetMapping
     public ApiResponse<PagedResponse<NotificationResponse>> listNotifications(
+            @RequestParam(defaultValue = "false") boolean unreadOnly,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal AccessTokenClaims claims) {
         requireAuthenticated(claims);
         int cappedSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
         return ApiResponse.success(
-                inboxService.listNotifications(claims.userId(), PageRequest.of(Math.max(page, 0), cappedSize)));
+                inboxService.listNotifications(claims.userId(), unreadOnly, PageRequest.of(Math.max(page, 0), cappedSize)));
     }
 
     @Operation(

@@ -7,6 +7,7 @@ import com.shopee.monolith.modules.media.dto.response.ProductMediaSummary;
 import com.shopee.monolith.modules.media.service.MediaService;
 import com.shopee.monolith.modules.product.dto.internal.ProductLookupData;
 import com.shopee.monolith.modules.product.dto.internal.ProductStockSummaryDto;
+import com.shopee.monolith.modules.product.dto.internal.VariantCartSummaryData;
 import com.shopee.monolith.modules.product.dto.internal.VariantLookupData;
 import com.shopee.monolith.modules.product.dto.request.CreateProductRequest;
 import com.shopee.monolith.modules.product.dto.request.CreateProductVariantRequest;
@@ -491,6 +492,65 @@ public class ProductServiceImpl implements ProductService {
     public Optional<VariantLookupData> findActiveVariantLookupDataByIdForCheckout(UUID variantId) {
         return productVariantRepository.findActiveByIdAndProductStatusForUpdate(variantId, ProductStatus.ACTIVE)
                 .map(productMapper::toLookupData);
+    }
+
+    @Override
+    public Map<UUID, VariantCartSummaryData> findVariantCartSummariesByIds(List<UUID> variantIds) {
+        if (variantIds.isEmpty()) {
+            return Map.of();
+        }
+        List<ProductVariant> variants = productVariantRepository.findAllByIdIn(variantIds);
+        if (variants.isEmpty()) {
+            return Map.of();
+        }
+
+        List<UUID> productIds = variants.stream().map(ProductVariant::getProductId).distinct().toList();
+        Map<UUID, Product> productMap = productRepository.findAllById(productIds).stream()
+                .collect(Collectors.toMap(Product::getId, p -> p));
+
+        Map<UUID, ProductStockSummaryDto> stockMap = stockSummaryProvider.getStockSummariesByVariantIds(
+                variants.stream().map(ProductVariant::getId).toList());
+        Map<UUID, List<ProductMediaSummary>> mediaMap = mediaService.listProductMediaByProductIds(productIds);
+        Map<UUID, ShopLookupData> shopMap = shopService.findShopLookupDataByIds(productMap.values().stream()
+                .map(Product::getShopId)
+                .distinct()
+                .toList());
+
+        Map<UUID, VariantCartSummaryData> result = new java.util.LinkedHashMap<>();
+        for (ProductVariant variant : variants) {
+            Product product = productMap.get(variant.getProductId());
+            if (product == null) {
+                continue;
+            }
+            ProductStockSummaryDto stock = stockMap.getOrDefault(variant.getId(),
+                    ProductStockSummaryDto.empty(variant.getId()));
+            boolean checkoutEligible = product.getStatus() == ProductStatus.ACTIVE
+                    && variant.isActive()
+                    && variant.getPrice().compareTo(BigDecimal.ZERO) > 0
+                    && stock.availableStock() > 0;
+            String coverImageUrl = mediaMap.getOrDefault(product.getId(), List.of()).stream()
+                    .filter(ProductMediaSummary::cover)
+                    .findFirst()
+                    .map(ProductMediaSummary::publicUrl)
+                    .orElse(null);
+            ShopLookupData shop = shopMap.get(product.getShopId());
+
+            result.put(variant.getId(), VariantCartSummaryData.builder()
+                    .variantId(variant.getId())
+                    .productId(product.getId())
+                    .shopId(product.getShopId())
+                    .shopName(shop != null ? shop.name() : null)
+                    .productName(product.getName())
+                    .variantName(variant.getName())
+                    .optionLabels(variant.getOptionLabels())
+                    .sku(variant.getSku())
+                    .price(variant.getPrice())
+                    .coverImageUrl(coverImageUrl)
+                    .availableStock(stock.availableStock())
+                    .checkoutEligible(checkoutEligible)
+                    .build());
+        }
+        return result;
     }
 
     // ===================== Private builders =====================

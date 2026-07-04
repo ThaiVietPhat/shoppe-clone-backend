@@ -9,7 +9,7 @@ import java.util.UUID;
 
 public interface NotificationInboxService {
 
-    PagedResponse<NotificationResponse> listNotifications(UUID userId, Pageable pageable);
+    PagedResponse<NotificationResponse> listNotifications(UUID userId, boolean unreadOnly, Pageable pageable);
 
     long countUnread(UUID userId);
 

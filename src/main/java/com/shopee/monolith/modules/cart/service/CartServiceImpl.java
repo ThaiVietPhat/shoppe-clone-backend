@@ -9,8 +9,7 @@ import com.shopee.monolith.modules.cart.dto.request.AddCartItemRequest;
 import com.shopee.monolith.modules.cart.dto.request.UpdateCartItemRequest;
 import com.shopee.monolith.modules.cart.dto.response.CartItemResponse;
 import com.shopee.monolith.modules.cart.dto.response.CartResponse;
-import com.shopee.monolith.modules.product.dto.internal.ProductLookupData;
-import com.shopee.monolith.modules.product.dto.internal.VariantLookupData;
+import com.shopee.monolith.modules.product.dto.internal.VariantCartSummaryData;
 import com.shopee.monolith.modules.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -159,27 +158,34 @@ public class CartServiceImpl implements CartService {
             Set<String> selectedSet = stringRedisTemplate.opsForSet().members(selectedKey);
             Set<String> selected = selectedSet != null ? selectedSet : Set.of();
 
+            List<UUID> variantIds = entries.keySet().stream()
+                    .map(k -> UUID.fromString((String) k))
+                    .toList();
+            Map<UUID, VariantCartSummaryData> summaries = productService.findVariantCartSummariesByIds(variantIds);
+
             List<CartItemResponse> items = new ArrayList<>();
             for (Map.Entry<Object, Object> entry : entries.entrySet()) {
                 UUID variantId = UUID.fromString((String) entry.getKey());
                 int quantity = Integer.parseInt((String) entry.getValue());
 
-                var variantOpt = productService.findActiveVariantLookupDataById(variantId);
-                if (variantOpt.isEmpty()) {
+                VariantCartSummaryData summary = summaries.get(variantId);
+                if (summary == null) {
                     continue;
                 }
-                VariantLookupData variant = variantOpt.get();
-                UUID shopId = productService.findActiveProductLookupDataById(variant.productId())
-                        .map(ProductLookupData::shopId)
-                        .orElse(null);
 
                 items.add(CartItemResponse.builder()
-                        .variantId(variant.id())
-                        .productId(variant.productId())
-                        .shopId(shopId)
-                        .name(variant.name())
-                        .sku(variant.sku())
-                        .price(variant.price())
+                        .variantId(summary.variantId())
+                        .productId(summary.productId())
+                        .shopId(summary.shopId())
+                        .shopName(summary.shopName())
+                        .productName(summary.productName())
+                        .variantName(summary.variantName())
+                        .optionLabels(summary.optionLabels())
+                        .sku(summary.sku())
+                        .price(summary.price())
+                        .coverImageUrl(summary.coverImageUrl())
+                        .availableStock(summary.availableStock())
+                        .checkoutEligible(summary.checkoutEligible())
                         .quantity(quantity)
                         .selected(selected.contains(variantId.toString()))
                         .build());

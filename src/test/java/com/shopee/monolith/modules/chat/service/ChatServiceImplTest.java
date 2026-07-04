@@ -96,7 +96,7 @@ class ChatServiceImplTest {
     void openRoomWhenRoomExistsShouldReuseIt() {
         when(shopService.findShopLookupDataById(shopId)).thenReturn(Optional.of(shop()));
         when(chatRoomRepository.findByBuyerIdAndShopId(buyerId, shopId)).thenReturn(Optional.of(room));
-        when(chatMapper.toRoomResponse(room, "Demo Shop")).thenReturn(mock(ChatRoomResponse.class));
+        when(chatMapper.toRoomResponse(room, "Demo Shop", null, null, null, 0L)).thenReturn(mock(ChatRoomResponse.class));
 
         chatService.openRoom(buyerId, shopId);
 
@@ -111,11 +111,11 @@ class ChatServiceImplTest {
                 .thenReturn(Optional.of(room));
         when(chatRoomRepository.saveAndFlush(any(ChatRoom.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
-        when(chatMapper.toRoomResponse(room, "Demo Shop")).thenReturn(mock(ChatRoomResponse.class));
+        when(chatMapper.toRoomResponse(room, "Demo Shop", null, null, null, 0L)).thenReturn(mock(ChatRoomResponse.class));
 
         chatService.openRoom(buyerId, shopId);
 
-        verify(chatMapper).toRoomResponse(room, "Demo Shop");
+        verify(chatMapper).toRoomResponse(room, "Demo Shop", null, null, null, 0L);
     }
 
     @Test
@@ -161,7 +161,7 @@ class ChatServiceImplTest {
         when(chatRoomRepository.findById(roomId)).thenReturn(Optional.of(room));
         when(chatRoomRepository.save(room)).thenReturn(room);
         when(shopService.findShopLookupDataById(shopId)).thenReturn(Optional.of(shop()));
-        when(chatMapper.toRoomResponse(room, "Demo Shop")).thenReturn(mock(ChatRoomResponse.class));
+        when(chatMapper.toRoomResponse(room, "Demo Shop", null, null, null, 0L)).thenReturn(mock(ChatRoomResponse.class));
 
         chatService.markRead(buyerId, roomId);
 
@@ -174,7 +174,7 @@ class ChatServiceImplTest {
         when(chatRoomRepository.findById(roomId)).thenReturn(Optional.of(room));
         when(chatRoomRepository.save(room)).thenReturn(room);
         when(shopService.findShopLookupDataById(shopId)).thenReturn(Optional.of(shop()));
-        when(chatMapper.toRoomResponse(room, "Demo Shop")).thenReturn(mock(ChatRoomResponse.class));
+        when(chatMapper.toRoomResponse(room, "Demo Shop", null, null, null, 0L)).thenReturn(mock(ChatRoomResponse.class));
 
         chatService.markRead(ownerId, roomId);
 

@@ -2,6 +2,7 @@ package com.shopee.monolith.modules.order.repository;
 
 import com.shopee.monolith.modules.order.entity.Order;
 import com.shopee.monolith.modules.order.model.FulfillmentStatus;
+import com.shopee.monolith.modules.order.model.OrderStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,6 +26,8 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findAllByCheckoutSessionIdOrderByIdAsc(UUID checkoutSessionId);
 
     Page<Order> findAllByBuyerIdOrderByCreatedAtDesc(UUID buyerId, Pageable pageable);
+
+    Page<Order> findAllByBuyerIdAndStatusOrderByCreatedAtDesc(UUID buyerId, OrderStatus status, Pageable pageable);
 
     Optional<Order> findByIdAndBuyerId(UUID id, UUID buyerId);
 

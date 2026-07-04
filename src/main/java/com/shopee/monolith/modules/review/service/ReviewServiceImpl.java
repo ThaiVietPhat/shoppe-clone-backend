@@ -75,6 +75,7 @@ public class ReviewServiceImpl implements ReviewService {
             throw new AppException(ErrorCode.REVIEW_ALREADY_EXISTS);
         }
 
+        buyerOrderService.markOrderItemReviewed(item.orderItemId());
         eventPublisher.publishEvent(new ReviewSubmittedEvent(productId));
         log.info("Buyer {} reviewed order item {} (product {})", buyerId, item.orderItemId(), productId);
         return reviewMapper.toResponse(review);

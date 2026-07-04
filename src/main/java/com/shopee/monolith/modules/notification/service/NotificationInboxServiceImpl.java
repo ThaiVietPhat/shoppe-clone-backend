@@ -29,8 +29,10 @@ public class NotificationInboxServiceImpl implements NotificationInboxService {
 
     @Override
     @Transactional(readOnly = true)
-    public PagedResponse<NotificationResponse> listNotifications(UUID userId, Pageable pageable) {
-        Page<Notification> page = notificationRepository.findAllByUserIdOrderByCreatedAtDesc(userId, pageable);
+    public PagedResponse<NotificationResponse> listNotifications(UUID userId, boolean unreadOnly, Pageable pageable) {
+        Page<Notification> page = unreadOnly
+                ? notificationRepository.findAllByUserIdAndReadAtIsNullOrderByCreatedAtDesc(userId, pageable)
+                : notificationRepository.findAllByUserIdOrderByCreatedAtDesc(userId, pageable);
         return PagedResponse.from(page, page.getContent().stream().map(notificationMapper::toResponse).toList());
     }
 

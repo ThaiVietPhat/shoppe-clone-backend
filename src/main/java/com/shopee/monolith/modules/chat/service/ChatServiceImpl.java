@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -54,7 +55,7 @@ public class ChatServiceImpl implements ChatService {
 
         ChatRoom room = chatRoomRepository.findByBuyerIdAndShopId(buyerId, shopId)
                 .orElseGet(() -> createRoom(buyerId, shopId));
-        return chatMapper.toRoomResponse(room, shop.name());
+        return buildRoomResponse(room, buyerId, shop.name());
     }
 
     private ChatRoom createRoom(UUID buyerId, UUID shopId) {
@@ -84,7 +85,7 @@ public class ChatServiceImpl implements ChatService {
         Map<UUID, ChatRoomResponse> byId = new LinkedHashMap<>();
         for (ChatRoom room : rooms) {
             ShopLookupData shop = shops.get(room.getShopId());
-            byId.putIfAbsent(room.getId(), chatMapper.toRoomResponse(room, shop != null ? shop.name() : null));
+            byId.putIfAbsent(room.getId(), buildRoomResponse(room, userId, shop != null ? shop.name() : null));
         }
         return List.copyOf(byId.values());
     }
@@ -124,7 +125,24 @@ public class ChatServiceImpl implements ChatService {
         room = chatRoomRepository.save(room);
         String shopName = shopService.findShopLookupDataById(room.getShopId())
                 .map(ShopLookupData::name).orElse(null);
-        return chatMapper.toRoomResponse(room, shopName);
+        return buildRoomResponse(room, userId, shopName);
+    }
+
+    private ChatRoomResponse buildRoomResponse(ChatRoom room, UUID viewerId, String shopName) {
+        Instant myLastReadAt = room.getBuyerId().equals(viewerId)
+                ? room.getBuyerLastReadAt()
+                : room.getSellerLastReadAt();
+        long unreadCount = myLastReadAt == null
+                ? chatMessageRepository.countByRoomIdAndSenderIdNot(room.getId(), viewerId)
+                : chatMessageRepository.countByRoomIdAndSenderIdNotAndCreatedAtAfter(room.getId(), viewerId, myLastReadAt);
+        ChatMessage lastMessage = chatMessageRepository.findFirstByRoomIdOrderByCreatedAtDesc(room.getId()).orElse(null);
+        return chatMapper.toRoomResponse(
+                room,
+                shopName,
+                lastMessage != null ? lastMessage.getContent() : null,
+                lastMessage != null ? lastMessage.getSenderId() : null,
+                lastMessage != null ? lastMessage.getCreatedAt() : null,
+                unreadCount);
     }
 
     @Override

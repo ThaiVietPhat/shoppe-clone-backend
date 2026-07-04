@@ -8,6 +8,7 @@ import com.shopee.monolith.modules.cart.dto.request.AddCartItemRequest;
 import com.shopee.monolith.modules.cart.dto.request.UpdateCartItemRequest;
 import com.shopee.monolith.modules.cart.dto.response.CartResponse;
 import com.shopee.monolith.modules.product.dto.internal.ProductLookupData;
+import com.shopee.monolith.modules.product.dto.internal.VariantCartSummaryData;
 import com.shopee.monolith.modules.product.dto.internal.VariantLookupData;
 import com.shopee.monolith.modules.product.service.ProductService;
 import org.junit.jupiter.api.BeforeEach;
@@ -78,6 +79,7 @@ class CartServiceImplTest {
 
     private VariantLookupData variantLookup;
     private ProductLookupData productLookup;
+    private VariantCartSummaryData variantCartSummary;
 
     @BeforeEach
     void setUp() {
@@ -94,6 +96,21 @@ class CartServiceImplTest {
                 .shopId(shopId)
                 .categoryId(UUID.randomUUID())
                 .name("Test Product")
+                .build();
+
+        variantCartSummary = VariantCartSummaryData.builder()
+                .variantId(variantId)
+                .productId(productId)
+                .shopId(shopId)
+                .shopName("Test Shop")
+                .productName("Test Product")
+                .variantName("Test Variant")
+                .optionLabels(Map.of())
+                .sku("SKU-VARIANT-1")
+                .price(new BigDecimal("150.00"))
+                .coverImageUrl(null)
+                .availableStock(10)
+                .checkoutEligible(true)
                 .build();
     }
 
@@ -125,8 +142,8 @@ class CartServiceImplTest {
         when(valueOperations.get("cart:" + userId + ":version")).thenReturn("4");
         when(setOperations.members("cart:" + userId + ":selected")).thenReturn(Set.of(variantId.toString()));
 
-        when(productService.findActiveVariantLookupDataById(variantId)).thenReturn(Optional.of(variantLookup));
-        when(productService.findActiveProductLookupDataById(productId)).thenReturn(Optional.of(productLookup));
+        when(productService.findVariantCartSummariesByIds(List.of(variantId)))
+                .thenReturn(Map.of(variantId, variantCartSummary));
 
         CartResponse response = cartService.getCart(userId);
 
@@ -139,7 +156,7 @@ class CartServiceImplTest {
         assertEquals(variantId, item.variantId());
         assertEquals(productId, item.productId());
         assertEquals(shopId, item.shopId());
-        assertEquals("Test Variant", item.name());
+        assertEquals("Test Variant", item.variantName());
         assertEquals(3, item.quantity());
         assertTrue(item.selected());
     }
@@ -171,7 +188,8 @@ class CartServiceImplTest {
         when(valueOperations.get("cart:" + userId + ":version")).thenReturn("6");
         when(setOperations.members("cart:" + userId + ":selected")).thenReturn(Set.of());
         when(stringRedisTemplate.opsForSet()).thenReturn(setOperations);
-        when(productService.findActiveProductLookupDataById(productId)).thenReturn(Optional.of(productLookup));
+        when(productService.findVariantCartSummariesByIds(List.of(variantId)))
+                .thenReturn(Map.of(variantId, variantCartSummary));
 
         CartResponse response = cartService.addItem(userId, request);
 
@@ -263,7 +281,8 @@ class CartServiceImplTest {
         when(hashOperations.entries("cart:" + userId + ":items")).thenReturn(hashEntries);
         when(valueOperations.get("cart:" + userId + ":version")).thenReturn("7");
         when(setOperations.members("cart:" + userId + ":selected")).thenReturn(Set.of());
-        when(productService.findActiveProductLookupDataById(productId)).thenReturn(Optional.of(productLookup));
+        when(productService.findVariantCartSummariesByIds(List.of(variantId)))
+                .thenReturn(Map.of(variantId, variantCartSummary));
 
         CartResponse response = cartService.updateItem(userId, variantId, request);
 
@@ -376,8 +395,8 @@ class CartServiceImplTest {
         when(hashOperations.entries("cart:" + userId + ":items")).thenReturn(hashEntries);
         when(valueOperations.get("cart:" + userId + ":version")).thenReturn("3");
         when(setOperations.members("cart:" + userId + ":selected")).thenReturn(Set.of(variantId.toString()));
-        when(productService.findActiveVariantLookupDataById(variantId)).thenReturn(Optional.of(variantLookup));
-        when(productService.findActiveProductLookupDataById(productId)).thenReturn(Optional.of(productLookup));
+        when(productService.findVariantCartSummariesByIds(List.of(variantId)))
+                .thenReturn(Map.of(variantId, variantCartSummary));
 
         CartResponse response = cartService.selectItems(userId, List.of(variantId));
 
@@ -415,8 +434,8 @@ class CartServiceImplTest {
         when(hashOperations.entries("cart:" + userId + ":items")).thenReturn(hashEntries);
         when(valueOperations.get("cart:" + userId + ":version")).thenReturn("4");
         when(setOperations.members("cart:" + userId + ":selected")).thenReturn(Set.of());
-        when(productService.findActiveVariantLookupDataById(variantId)).thenReturn(Optional.of(variantLookup));
-        when(productService.findActiveProductLookupDataById(productId)).thenReturn(Optional.of(productLookup));
+        when(productService.findVariantCartSummariesByIds(List.of(variantId)))
+                .thenReturn(Map.of(variantId, variantCartSummary));
 
         CartResponse response = cartService.deselectItems(userId, List.of(variantId));
 

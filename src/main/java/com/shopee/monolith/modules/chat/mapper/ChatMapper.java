@@ -12,7 +12,13 @@ public interface ChatMapper {
 
     @Mapping(target = "id", source = "room.id")
     @Mapping(target = "createdAt", source = "room.createdAt")
-    ChatRoomResponse toRoomResponse(ChatRoom room, String shopName);
+    @Mapping(target = "lastMessageContent", source = "lastMessageContent")
+    @Mapping(target = "lastMessageSenderId", source = "lastMessageSenderId")
+    @Mapping(target = "lastMessageAt", source = "lastMessageAt")
+    @Mapping(target = "unreadCount", source = "unreadCount")
+    ChatRoomResponse toRoomResponse(ChatRoom room, String shopName, String lastMessageContent,
+                                     java.util.UUID lastMessageSenderId, java.time.Instant lastMessageAt,
+                                     long unreadCount);
 
     ChatMessageResponse toMessageResponse(ChatMessage message);
 }

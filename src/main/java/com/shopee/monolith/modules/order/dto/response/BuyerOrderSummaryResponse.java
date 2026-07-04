@@ -31,6 +31,15 @@ public record BuyerOrderSummaryResponse(
         @Schema(description = "Number of order items", example = "2")
         int itemCount,
 
+        @Schema(description = "Product name of the first order item, for a list preview", example = "Wireless Mouse")
+        String coverProductName,
+
+        @Schema(description = "Quantity of the first order item", example = "2")
+        int coverItemQuantity,
+
+        @Schema(description = "Public URL of the first order item's product cover image (null if unavailable)")
+        String coverImageUrl,
+
         @Schema(description = "Order creation timestamp")
         Instant createdAt
 ) {

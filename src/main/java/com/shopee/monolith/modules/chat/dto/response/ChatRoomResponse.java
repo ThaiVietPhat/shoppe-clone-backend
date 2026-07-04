@@ -27,6 +27,18 @@ public record ChatRoomResponse(
         @Schema(description = "Last time the seller read this room (read receipt)")
         Instant sellerLastReadAt,
 
+        @Schema(description = "Content of the most recent message in the room (null if no messages yet)")
+        String lastMessageContent,
+
+        @Schema(description = "Sender of the most recent message (null if no messages yet)")
+        UUID lastMessageSenderId,
+
+        @Schema(description = "Timestamp of the most recent message (null if no messages yet)")
+        Instant lastMessageAt,
+
+        @Schema(description = "Number of messages not yet read by the caller, excluding the caller's own messages")
+        long unreadCount,
+
         @Schema(description = "Timestamp when created")
         Instant createdAt
 ) {

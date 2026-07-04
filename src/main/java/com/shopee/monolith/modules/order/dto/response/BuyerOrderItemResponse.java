@@ -31,6 +31,9 @@ public record BuyerOrderItemResponse(
         int quantity,
 
         @Schema(description = "Line subtotal = price × quantity", example = "240000.00")
-        BigDecimal subtotal
+        BigDecimal subtotal,
+
+        @Schema(description = "Whether the buyer already submitted a review for this item")
+        boolean reviewed
 ) {
 }

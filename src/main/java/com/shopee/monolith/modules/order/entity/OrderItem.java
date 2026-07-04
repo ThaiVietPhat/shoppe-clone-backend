@@ -6,6 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
@@ -44,4 +45,12 @@ public class OrderItem extends BaseEntity {
 
     @Column(name = "subtotal", nullable = false, precision = 15, scale = 2)
     private BigDecimal subtotal;
+
+    @Column(name = "reviewed", nullable = false)
+    @Builder.Default
+    private boolean reviewed = false;
+
+    public void markReviewed() {
+        this.reviewed = true;
+    }
 }

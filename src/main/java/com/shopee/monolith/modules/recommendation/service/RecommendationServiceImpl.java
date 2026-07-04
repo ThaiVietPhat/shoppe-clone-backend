@@ -176,7 +176,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private List<ProductCardResponse> loadOrderSignalCards(UUID userId) {
         try {
             PagedResponse<BuyerOrderSummaryResponse> orders =
-                    buyerOrderService.listOrders(userId, PageRequest.of(0, ORDER_SIGNAL_LIMIT));
+                    buyerOrderService.listOrders(userId, null, PageRequest.of(0, ORDER_SIGNAL_LIMIT));
             if (orders.items() == null || orders.items().isEmpty()) {
                 return List.of();
             }

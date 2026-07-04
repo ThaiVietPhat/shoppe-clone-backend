@@ -2,6 +2,7 @@ package com.shopee.monolith.modules.product.service;
 
 import com.shopee.monolith.common.response.PagedResponse;
 import com.shopee.monolith.modules.product.dto.internal.ProductLookupData;
+import com.shopee.monolith.modules.product.dto.internal.VariantCartSummaryData;
 import com.shopee.monolith.modules.product.dto.internal.VariantLookupData;
 import com.shopee.monolith.modules.product.dto.request.CreateProductRequest;
 import com.shopee.monolith.modules.product.dto.request.CreateProductVariantRequest;
@@ -83,6 +84,14 @@ public interface ProductService {
     Optional<ProductLookupData> findActiveProductLookupDataByIdForCheckout(UUID productId);
 
     Optional<VariantLookupData> findActiveVariantLookupDataByIdForCheckout(UUID variantId);
+
+    /**
+     * Batch-loads cart display data (product/variant name, option labels, cover image,
+     * available stock, checkout eligibility) for a set of variant IDs.
+     * Used by CartModule to enrich cart items; variants whose backing product no longer
+     * exists are silently excluded from the result map.
+     */
+    Map<UUID, VariantCartSummaryData> findVariantCartSummariesByIds(List<UUID> variantIds);
 
     /**
      * Loads full ProductCardResponse for a given ordered list of product IDs.

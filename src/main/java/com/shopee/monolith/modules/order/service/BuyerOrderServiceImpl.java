@@ -23,6 +23,8 @@ import com.shopee.monolith.modules.order.repository.CheckoutSessionRepository;
 import com.shopee.monolith.modules.order.repository.InventoryReservationRepository;
 import com.shopee.monolith.modules.order.repository.OrderItemRepository;
 import com.shopee.monolith.modules.order.repository.OrderRepository;
+import com.shopee.monolith.modules.product.dto.internal.VariantCartSummaryData;
+import com.shopee.monolith.modules.product.service.ProductService;
 import com.shopee.monolith.modules.user.dto.internal.ShopLookupData;
 import com.shopee.monolith.modules.user.service.ShopService;
 import lombok.RequiredArgsConstructor;
@@ -51,27 +53,49 @@ public class BuyerOrderServiceImpl implements BuyerOrderService {
     private final CheckoutSessionRepository checkoutSessionRepository;
     private final InventoryService inventoryService;
     private final ShopService shopService;
+    private final ProductService productService;
     private final BuyerOrderMapper buyerOrderMapper;
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
-    public PagedResponse<BuyerOrderSummaryResponse> listOrders(UUID buyerId, Pageable pageable) {
-        Page<Order> page = orderRepository.findAllByBuyerIdOrderByCreatedAtDesc(buyerId, pageable);
+    public PagedResponse<BuyerOrderSummaryResponse> listOrders(UUID buyerId, OrderStatus status, Pageable pageable) {
+        Page<Order> page = status != null
+                ? orderRepository.findAllByBuyerIdAndStatusOrderByCreatedAtDesc(buyerId, status, pageable)
+                : orderRepository.findAllByBuyerIdOrderByCreatedAtDesc(buyerId, pageable);
         List<Order> orders = page.getContent();
 
         List<UUID> orderIds = orders.stream().map(Order::getId).toList();
-        Map<UUID, Long> itemCounts = orderIds.isEmpty() ? Map.of()
+        Map<UUID, List<OrderItem>> itemsByOrderId = orderIds.isEmpty() ? Map.of()
                 : orderItemRepository.findAllByOrderIdIn(orderIds).stream()
-                        .collect(Collectors.groupingBy(OrderItem::getOrderId, Collectors.counting()));
+                        .collect(Collectors.groupingBy(OrderItem::getOrderId));
+        Map<UUID, Long> itemCounts = itemsByOrderId.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> (long) e.getValue().size()));
         Map<UUID, ShopLookupData> shops = shopService.findShopLookupDataByIds(
                 orders.stream().map(Order::getShopId).collect(Collectors.toSet()));
 
+        List<UUID> coverVariantIds = itemsByOrderId.values().stream()
+                .map(items -> items.get(0).getVariantId())
+                .distinct()
+                .toList();
+        Map<UUID, VariantCartSummaryData> coverSummaries = productService.findVariantCartSummariesByIds(coverVariantIds);
+
         List<BuyerOrderSummaryResponse> summaries = orders.stream()
-                .map(order -> buyerOrderMapper.toSummaryResponse(
-                        order,
-                        resolveShopName(shops, order.getShopId()),
-                        itemCounts.getOrDefault(order.getId(), 0L).intValue()))
+                .map(order -> {
+                    List<OrderItem> items = itemsByOrderId.getOrDefault(order.getId(), List.of());
+                    OrderItem coverItem = items.isEmpty() ? null : items.get(0);
+                    String coverImageUrl = coverItem == null ? null
+                            : Optional.ofNullable(coverSummaries.get(coverItem.getVariantId()))
+                                    .map(VariantCartSummaryData::coverImageUrl)
+                                    .orElse(null);
+                    return buyerOrderMapper.toSummaryResponse(
+                            order,
+                            resolveShopName(shops, order.getShopId()),
+                            itemCounts.getOrDefault(order.getId(), 0L).intValue(),
+                            coverItem == null ? null : coverItem.getProductName(),
+                            coverItem == null ? 0 : coverItem.getQuantity(),
+                            coverImageUrl);
+                })
                 .toList();
         return PagedResponse.from(page, summaries);
     }
@@ -178,6 +202,15 @@ public class BuyerOrderServiceImpl implements BuyerOrderService {
                                 .reviewable(order.getStatus() == OrderStatus.DELIVERED
                                         || order.getStatus() == OrderStatus.COMPLETED)
                                 .build()));
+    }
+
+    @Override
+    @Transactional
+    public void markOrderItemReviewed(UUID orderItemId) {
+        orderItemRepository.findById(orderItemId).ifPresent(item -> {
+            item.markReviewed();
+            orderItemRepository.save(item);
+        });
     }
 
     private List<BuyerOrderTimelineEvent> buildTimeline(Order order) {

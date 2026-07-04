@@ -21,5 +21,9 @@ public interface BuyerOrderMapper {
     @Mapping(source = "itemCount", target = "itemCount")
     @Mapping(source = "order.status", target = "status")
     @Mapping(source = "order.paymentStatus", target = "paymentStatus")
-    BuyerOrderSummaryResponse toSummaryResponse(Order order, String shopName, int itemCount);
+    @Mapping(source = "coverProductName", target = "coverProductName")
+    @Mapping(source = "coverItemQuantity", target = "coverItemQuantity")
+    @Mapping(source = "coverImageUrl", target = "coverImageUrl")
+    BuyerOrderSummaryResponse toSummaryResponse(Order order, String shopName, int itemCount,
+                                                 String coverProductName, int coverItemQuantity, String coverImageUrl);
 }

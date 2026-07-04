@@ -184,7 +184,7 @@ class BuyerOrderServiceIT extends BasePostgresRedisIntegrationTest {
         CheckoutResponse checkout = checkout(2);
 
         PagedResponse<BuyerOrderSummaryResponse> own =
-                buyerOrderService.listOrders(buyer.getId(), PageRequest.of(0, 20));
+                buyerOrderService.listOrders(buyer.getId(), null, PageRequest.of(0, 20));
         assertEquals(1, own.totalElements());
         BuyerOrderSummaryResponse summary = own.items().get(0);
         assertEquals(checkout.orderIds().get(0), summary.orderId());
@@ -193,7 +193,7 @@ class BuyerOrderServiceIT extends BasePostgresRedisIntegrationTest {
         assertEquals(OrderStatus.PENDING_PAYMENT.name(), summary.status());
 
         PagedResponse<BuyerOrderSummaryResponse> foreign =
-                buyerOrderService.listOrders(otherBuyer.getId(), PageRequest.of(0, 20));
+                buyerOrderService.listOrders(otherBuyer.getId(), null, PageRequest.of(0, 20));
         assertEquals(0, foreign.totalElements());
     }
 

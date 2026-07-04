@@ -8,6 +8,7 @@ import com.shopee.monolith.common.response.SwaggerResponses;
 import com.shopee.monolith.modules.auth.dto.internal.AccessTokenClaims;
 import com.shopee.monolith.modules.order.dto.response.BuyerOrderDetailResponse;
 import com.shopee.monolith.modules.order.dto.response.BuyerOrderSummaryResponse;
+import com.shopee.monolith.modules.order.model.OrderStatus;
 import com.shopee.monolith.modules.order.service.BuyerOrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -48,13 +49,14 @@ public class BuyerOrderController {
             content = @Content(schema = @Schema(implementation = SwaggerResponses.ApiResponseVoid.class)))
     @GetMapping
     public ApiResponse<PagedResponse<BuyerOrderSummaryResponse>> listOrders(
+            @RequestParam(required = false) OrderStatus status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal AccessTokenClaims claims) {
         requireAuthenticated(claims);
         int cappedSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
         return ApiResponse.success(
-                buyerOrderService.listOrders(claims.userId(), PageRequest.of(Math.max(page, 0), cappedSize)));
+                buyerOrderService.listOrders(claims.userId(), status, PageRequest.of(Math.max(page, 0), cappedSize)));
     }
 
     @Operation(

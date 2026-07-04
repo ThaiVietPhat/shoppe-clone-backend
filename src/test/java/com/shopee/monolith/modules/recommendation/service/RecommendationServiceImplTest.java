@@ -142,7 +142,7 @@ class RecommendationServiceImplTest {
                 .items(List.of())
                 .version(1)
                 .build());
-        when(buyerOrderService.listOrders(eq(userId), any())).thenReturn(PagedResponse.<BuyerOrderSummaryResponse>builder()
+        when(buyerOrderService.listOrders(eq(userId), eq(null), any())).thenReturn(PagedResponse.<BuyerOrderSummaryResponse>builder()
                 .items(List.of(BuyerOrderSummaryResponse.builder()
                         .orderId(orderId)
                         .createdAt(Instant.parse("2026-06-02T00:00:00Z"))
