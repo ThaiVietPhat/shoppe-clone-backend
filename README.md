@@ -109,7 +109,7 @@ The compose file exposes:
 
 | Service | URL / Port | Credentials |
 | --- | --- | --- |
-| PostgreSQL | `localhost:5432/shopee_db` | `shoppe` / `shoppe` |
+| PostgreSQL | `localhost:5433/shopee_db` (container maps `5433:5432`) | `shoppe` / `shoppe` |
 | Redis | `localhost:6379` | none |
 | Elasticsearch | `http://localhost:9200` | security disabled for local dev |
 
@@ -124,6 +124,7 @@ psql -U postgres -f scripts/create-database.sql
 PowerShell:
 
 ```powershell
+$env:DB_PORT="5433"
 $env:DB_USERNAME="shoppe"
 $env:DB_PASSWORD="shoppe"
 $env:JWT_ACTIVE_SECRET="local-jwt-secret-key-must-be-at-least-32-chars"
@@ -142,6 +143,7 @@ mvn spring-boot:run -Dspring-boot.run.profiles=local
 Bash:
 
 ```bash
+export DB_PORT=5433
 export DB_USERNAME=shoppe
 export DB_PASSWORD=shoppe
 export JWT_ACTIVE_SECRET=local-jwt-secret-key-must-be-at-least-32-chars
@@ -192,13 +194,13 @@ Schema migrations are stored in [src/main/resources/db/migration](src/main/resou
 After the application has started once and Flyway has created the schema, seed deterministic demo data:
 
 ```bash
-psql "postgresql://shoppe:shoppe@localhost:5432/shopee_db" -f scripts/demo-seed.sql
+psql "postgresql://shoppe:shoppe@localhost:5433/shopee_db" -f scripts/demo-seed.sql
 ```
 
 Reset demo data:
 
 ```bash
-psql "postgresql://shoppe:shoppe@localhost:5432/shopee_db" -f scripts/demo-reset.sql
+psql "postgresql://shoppe:shoppe@localhost:5433/shopee_db" -f scripts/demo-reset.sql
 ```
 
 Demo accounts:
