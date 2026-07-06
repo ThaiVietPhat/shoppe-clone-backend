@@ -1,5 +1,7 @@
 package com.shopee.monolith.modules.media.service;
 
+import com.shopee.monolith.common.exception.AppException;
+import com.shopee.monolith.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,6 +12,7 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -61,6 +64,8 @@ public class LocalFileSystemStorageService implements StorageService {
                 throw new IllegalArgumentException("Invalid object key");
             }
             return Files.readAllBytes(target);
+        } catch (NoSuchFileException e) {
+            throw new AppException(ErrorCode.MEDIA_NOT_FOUND);
         } catch (IOException e) {
             throw new IllegalStateException("Failed to load file locally: " + objectKey, e);
         }

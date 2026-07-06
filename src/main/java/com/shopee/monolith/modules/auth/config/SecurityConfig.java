@@ -17,6 +17,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.session.NullAuthenticatedSessionStrategy;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
@@ -53,6 +54,15 @@ public class SecurityConfig {
                     csrf
                             .csrfTokenRepository(tokenRepository)
                             .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                            // Stateless JWT auth means SecurityContextRepository never "contains" a context, so
+                            // SessionManagementFilter treats every authenticated request as a brand-new login and
+                            // fires CsrfConfigurer's default CsrfAuthenticationStrategy, which deletes the
+                            // XSRF-TOKEN cookie on every authenticated request without reissuing one in the same
+                            // response (causes sporadic 403 on the next CSRF-protected /api/auth/* call, e.g.
+                            // refresh/logout/login). There is no real session to fixate, so disable it here —
+                            // SessionManagementConfigurer#sessionAuthenticationStrategy does NOT work for this
+                            // because CsrfConfigurer always ADDS its own strategy to that composite regardless.
+                            .sessionAuthenticationStrategy(new NullAuthenticatedSessionStrategy())
                             .ignoringRequestMatchers(request -> !request.getRequestURI().startsWith("/api/auth"))
                             .ignoringRequestMatchers("/api/auth/oauth2/exchange");
                 })

@@ -33,8 +33,8 @@ public class OrderNotificationListener {
             inboxService.createNotification(
                     event.buyerId(),
                     NotificationType.ORDER_CONFIRMED,
-                    "Your order has been confirmed",
-                    "Payment via " + event.paymentMethod() + " succeeded. The seller is preparing your order.",
+                    "Đơn hàng của bạn đã được xác nhận",
+                    "Thanh toán qua " + event.paymentMethod() + " thành công. Người bán đang chuẩn bị đơn hàng của bạn.",
                     REF_TYPE_ORDER,
                     orderId);
         }
@@ -47,23 +47,23 @@ public class OrderNotificationListener {
             case "SHIPPED" -> inboxService.createNotification(
                     event.buyerId(),
                     NotificationType.ORDER_SHIPPED,
-                    "Your order has been shipped",
-                    "The seller handed your order to the carrier.",
+                    "Đơn hàng của bạn đang được giao",
+                    "Người bán đã giao đơn hàng cho đơn vị vận chuyển.",
                     REF_TYPE_ORDER,
                     event.orderId());
             case "DELIVERED" -> {
                 inboxService.createNotification(
                         event.buyerId(),
                         NotificationType.ORDER_DELIVERED,
-                        "Your order has been delivered",
-                        "Enjoy your purchase!",
+                        "Đơn hàng của bạn đã được giao",
+                        "Chúc bạn hài lòng với sản phẩm đã mua!",
                         REF_TYPE_ORDER,
                         event.orderId());
                 inboxService.createNotification(
                         event.buyerId(),
                         NotificationType.REVIEW_REMINDER,
-                        "How was your order?",
-                        "Leave a review for the items you received.",
+                        "Đơn hàng của bạn thế nào?",
+                        "Hãy để lại đánh giá cho sản phẩm bạn vừa nhận được.",
                         REF_TYPE_ORDER,
                         event.orderId());
             }
