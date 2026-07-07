@@ -428,15 +428,16 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public PagedResponse<ProductDetailResponse> listSellerProducts(UUID ownerId, int page, int size) {
+    public PagedResponse<ProductDetailResponse> listSellerProducts(UUID ownerId, ProductStatus status, int page, int size) {
         if (page < 0 || size < 1) {
             throw new AppException(ErrorCode.INVALID_REQUEST);
         }
         ShopLookupData shop = shopService.findShopLookupDataByOwnerId(ownerId)
                 .orElseThrow(() -> new AppException(ErrorCode.SHOP_NOT_FOUND));
 
-        Page<Product> productPage = productRepository.findAllByShopIdAndStatusNot(
-                shop.id(), ProductStatus.DELETED, buildPageable(page, size));
+        Page<Product> productPage = status != null
+                ? productRepository.findAllByShopIdAndStatus(shop.id(), status, buildPageable(page, size))
+                : productRepository.findAllByShopIdAndStatusNot(shop.id(), ProductStatus.DELETED, buildPageable(page, size));
 
         List<ProductDetailResponse> content = buildProductDetails(productPage.getContent());
 

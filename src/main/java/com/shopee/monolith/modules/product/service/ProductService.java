@@ -14,6 +14,7 @@ import com.shopee.monolith.modules.product.dto.response.ProductCardResponse;
 import com.shopee.monolith.modules.product.dto.response.ProductDetailResponse;
 import com.shopee.monolith.modules.product.dto.response.ProductResponse;
 import com.shopee.monolith.modules.product.dto.response.ProductVariantResponse;
+import com.shopee.monolith.modules.product.entity.ProductStatus;
 
 import java.util.List;
 import java.util.Map;
@@ -67,7 +68,7 @@ public interface ProductService {
 
     void deleteProduct(UUID ownerId, UUID productId);
 
-    PagedResponse<ProductDetailResponse> listSellerProducts(UUID ownerId, int page, int size);
+    PagedResponse<ProductDetailResponse> listSellerProducts(UUID ownerId, ProductStatus status, int page, int size);
 
     ProductDetailResponse getProductDetailForSeller(UUID ownerId, UUID productId);
 

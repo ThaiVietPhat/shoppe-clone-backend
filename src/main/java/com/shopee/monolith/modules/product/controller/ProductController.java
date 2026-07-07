@@ -17,6 +17,7 @@ import com.shopee.monolith.modules.product.dto.response.ProductDetailResponse;
 import com.shopee.monolith.modules.product.dto.response.ProductResponse;
 import com.shopee.monolith.modules.product.dto.response.ProductSwaggerResponses;
 import com.shopee.monolith.modules.product.dto.response.ProductVariantResponse;
+import com.shopee.monolith.modules.product.entity.ProductStatus;
 import com.shopee.monolith.modules.product.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -168,13 +169,15 @@ public class ProductController {
     )
     @GetMapping("/api/seller/products")
     public ApiResponse<PagedResponse<ProductDetailResponse>> listSellerProducts(
+            @Parameter(description = "Filter by product status; omit for all non-deleted products")
+            @RequestParam(required = false) ProductStatus status,
             @Parameter(description = "Page index (0-indexed)") @RequestParam(defaultValue = "0") @Min(0) int page,
             @Parameter(description = "Page size (max 100)") @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
             @AuthenticationPrincipal AccessTokenClaims claims) {
         if (claims == null) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
-        return ApiResponse.success(productService.listSellerProducts(claims.userId(), page, size));
+        return ApiResponse.success(productService.listSellerProducts(claims.userId(), status, page, size));
     }
 
     @Operation(
