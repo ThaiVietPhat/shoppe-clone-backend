@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 
 class NotificationModuleIT extends BasePostgresRedisIntegrationTest {
@@ -109,7 +110,13 @@ class NotificationModuleIT extends BasePostgresRedisIntegrationTest {
 
         // Wait to verify it didn't run
         Thread.sleep(1000);
-        Mockito.verify(emailService, Mockito.never()).sendVerificationEmail(anyString(), anyString());
+        // Scoped to this test's own email/token: emailService is a shared @MockitoSpyBean across
+        // IT classes, and other suites (e.g. AuthControllerRegistrationIT) trigger the real async
+        // verification-email listener for their own users. Asserting anyString()/anyString() here
+        // made this test flaky whenever one of those unrelated async deliveries landed during the
+        // 1s wait window.
+        Mockito.verify(emailService, Mockito.never())
+                .sendVerificationEmail(eq(email), eq("http://localhost:3000/verify-email?token=rawToken123"));
 
         Integer publicationCount = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM event_publication", Integer.class);
