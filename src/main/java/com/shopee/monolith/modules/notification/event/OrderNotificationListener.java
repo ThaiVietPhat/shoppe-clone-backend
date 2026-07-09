@@ -23,18 +23,25 @@ import java.util.UUID;
 public class OrderNotificationListener {
 
     private static final String REF_TYPE_ORDER = "ORDER";
+    private static final String COD_METHOD = "COD";
 
     private final NotificationInboxService inboxService;
 
     @Async("eventTaskExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleOrderConfirmed(OrderConfirmedEvent event) {
+        // COD is not collected yet at confirm time (see Order#confirmCod) — don't tell the buyer
+        // payment "succeeded" when the seller hasn't been paid until cash-on-delivery.
+        String body = COD_METHOD.equals(event.paymentMethod())
+                ? "Đơn hàng đã được xác nhận, thanh toán bằng tiền mặt khi nhận hàng. "
+                        + "Người bán đang chuẩn bị đơn hàng của bạn."
+                : "Thanh toán qua " + event.paymentMethod() + " thành công. Người bán đang chuẩn bị đơn hàng của bạn.";
         for (UUID orderId : event.orderIds()) {
             inboxService.createNotification(
                     event.buyerId(),
                     NotificationType.ORDER_CONFIRMED,
                     "Đơn hàng của bạn đã được xác nhận",
-                    "Thanh toán qua " + event.paymentMethod() + " thành công. Người bán đang chuẩn bị đơn hàng của bạn.",
+                    body,
                     REF_TYPE_ORDER,
                     orderId);
         }

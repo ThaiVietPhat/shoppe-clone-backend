@@ -90,6 +90,25 @@ class SearchServiceFallbackTest {
         assertEquals(1, response.products().items().size());
     }
 
+    @Test
+    void searchWhenElasticsearchHitIsStaleShouldExcludeFromTotalElements() {
+        UUID productId = UUID.randomUUID();
+        SearchRequest request = new SearchRequest("mouse", null, null, null, null, "RELEVANCE", 0, 10);
+
+        // ES reports 1 hit, but the product no longer exists/isn't ACTIVE in Postgres
+        org.springframework.data.elasticsearch.core.SearchHits<com.shopee.monolith.modules.search.document.ProductDocument> hits
+                = mockSearchHits(List.of(productId));
+        doReturn(hits).when(elasticsearchOperations).search(any(NativeQuery.class), any(Class.class));
+        when(productService.loadActiveProductCards(List.of(productId))).thenReturn(List.of());
+
+        SearchResponse response = searchService.search(request);
+
+        PagedResponse<ProductCardResponse> paged = response.products();
+        assertTrue(paged.items().isEmpty());
+        assertEquals(0, paged.totalElements(), "Stale ES hit must not be counted in totalElements");
+        assertEquals(0, paged.totalPages());
+    }
+
     // ===================== Elasticsearch fallback path =====================
 
     @Test

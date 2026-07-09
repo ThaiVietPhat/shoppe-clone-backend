@@ -108,9 +108,21 @@ public class Order extends BaseEntity {
         this.fulfillmentStatus = FulfillmentStatus.READY_TO_SHIP;
     }
 
+    /**
+     * Settles a COD checkout: inventory and fulfillment are confirmed immediately so the seller
+     * can pack and ship, but the order stays UNPAID — cash is only collected on delivery, see
+     * {@link #deliver()}. Never conflate COD with {@link #markPaid}, which represents an actual
+     * gateway settlement.
+     */
+    public void confirmCod(String method) {
+        this.status = OrderStatus.CONFIRMED;
+        this.paymentStatus = OrderPaymentStatus.UNPAID;
+        this.paymentMethod = method;
+        this.fulfillmentStatus = FulfillmentStatus.READY_TO_SHIP;
+    }
+
     public void ship() {
-        if (this.paymentStatus != OrderPaymentStatus.PAID
-                || this.fulfillmentStatus != FulfillmentStatus.READY_TO_SHIP) {
+        if (this.fulfillmentStatus != FulfillmentStatus.READY_TO_SHIP) {
             throw new AppException(ErrorCode.ORDER_FULFILLMENT_INVALID_STATE);
         }
         this.fulfillmentStatus = FulfillmentStatus.SHIPPED;
@@ -123,6 +135,11 @@ public class Order extends BaseEntity {
         }
         this.fulfillmentStatus = FulfillmentStatus.DELIVERED;
         this.status = OrderStatus.DELIVERED;
+        // COD cash is collected by the carrier at handover — this is where an unpaid COD order
+        // actually becomes paid. Orders already PAID (online gateway) are left untouched.
+        if (this.paymentStatus == OrderPaymentStatus.UNPAID) {
+            this.paymentStatus = OrderPaymentStatus.PAID;
+        }
     }
 
     public void markPaymentExpired() {

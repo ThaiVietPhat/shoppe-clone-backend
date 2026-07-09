@@ -104,17 +104,21 @@ public class SearchServiceImpl implements SearchService {
                 .map(h -> UUID.fromString(h.getContent().getProductId()))
                 .toList();
 
-        // Revalidate: load full cards from DB, filtering out stale ES entries
+        // Revalidate: load full cards from DB, filtering out stale ES entries (e.g. a product
+        // hard-deleted or unpublished after being indexed). Subtract those drops from the raw ES
+        // hit count so totalElements never overstates what a client can actually page through —
+        // otherwise a page can report e.g. totalElements=1 with an empty items list.
         List<ProductCardResponse> cards = productService.loadActiveProductCards(productIds);
-        long totalHits = hits.getTotalHits();
+        int staleOnThisPage = productIds.size() - cards.size();
+        long totalHits = Math.max(0, hits.getTotalHits() - staleOnThisPage);
         int totalPages = request.size() == 0 ? 0 : (int) Math.ceil((double) totalHits / request.size());
 
         PagedResponse<ProductCardResponse> paged = PagedResponse.<ProductCardResponse>builder()
                 .items(cards)
                 .page(request.page())
                 .size(request.size())
-                // known: totalElements reflects ES hit count; post-revalidation drop of stale entries means
-                // items.size() may be < page size even when more pages exist — acceptable for demo scope
+                // known: totalElements is corrected only for stale entries found on THIS page —
+                // stale entries on other pages still inflate the grand total; acceptable for demo scope
                 .totalElements(totalHits)
                 .totalPages(totalPages)
                 .last(request.page() >= totalPages - 1)

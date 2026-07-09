@@ -219,7 +219,7 @@ class PaymentFlowIT extends BasePostgresRedisIntegrationTest {
     }
 
     @Test
-    void codPaymentShouldConfirmInventoryAndMarkOrdersPaid() {
+    void codPaymentShouldConfirmInventoryAndOrderWithoutCollectingCashYet() {
         CheckoutResponse checkout = checkout(2);
 
         PaymentStatusResponse response = paymentService.initiatePayment(buyer.getId(),
@@ -230,9 +230,11 @@ class PaymentFlowIT extends BasePostgresRedisIntegrationTest {
         CheckoutSession session = checkoutSessionRepository.findById(checkout.checkoutSessionId()).orElseThrow();
         assertEquals(CheckoutSessionStatus.COMPLETED, session.getStatus());
 
+        // COD confirms inventory/fulfillment immediately but must NOT settle as paid until the
+        // carrier collects cash on delivery (Order#deliver) — see DESIGN.md §8 COD contract.
         Order order = orderRepository.findById(checkout.orderIds().get(0)).orElseThrow();
-        assertEquals(OrderStatus.PAID, order.getStatus());
-        assertEquals(OrderPaymentStatus.PAID, order.getPaymentStatus());
+        assertEquals(OrderStatus.CONFIRMED, order.getStatus());
+        assertEquals(OrderPaymentStatus.UNPAID, order.getPaymentStatus());
         assertEquals("COD", order.getPaymentMethod());
 
         assertTrue(inventoryReservationRepository.findAll().stream()

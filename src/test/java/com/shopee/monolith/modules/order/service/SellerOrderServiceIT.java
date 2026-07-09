@@ -18,6 +18,7 @@ import com.shopee.monolith.modules.order.dto.response.SellerOrderDetailResponse;
 import com.shopee.monolith.modules.order.dto.response.SellerOrderSummaryResponse;
 import com.shopee.monolith.modules.order.entity.Order;
 import com.shopee.monolith.modules.order.model.FulfillmentStatus;
+import com.shopee.monolith.modules.order.model.OrderPaymentStatus;
 import com.shopee.monolith.modules.order.model.OrderStatus;
 import com.shopee.monolith.modules.order.repository.CheckoutSessionRepository;
 import com.shopee.monolith.modules.order.repository.InventoryReservationRepository;
@@ -190,7 +191,7 @@ class SellerOrderServiceIT extends BasePostgresRedisIntegrationTest {
                 UUID.randomUUID().toString());
     }
 
-    private UUID paidOrderId() {
+    private UUID confirmedOrderId() {
         CheckoutResponse checkout = checkout(2);
         checkoutSettlementService.confirmCheckoutSession(checkout.checkoutSessionId(), "COD");
         return checkout.orderIds().get(0);
@@ -198,7 +199,7 @@ class SellerOrderServiceIT extends BasePostgresRedisIntegrationTest {
 
     @Test
     void listOrdersShouldReturnOnlyOwnShopOrders() {
-        UUID orderId = paidOrderId();
+        UUID orderId = confirmedOrderId();
 
         PagedResponse<SellerOrderSummaryResponse> own =
                 sellerOrderService.listOrders(seller.getId(), null, PageRequest.of(0, 20));
@@ -216,7 +217,7 @@ class SellerOrderServiceIT extends BasePostgresRedisIntegrationTest {
 
     @Test
     void getOrderDetailWhenForeignSellerShouldThrowOrderNotFound() {
-        UUID orderId = paidOrderId();
+        UUID orderId = confirmedOrderId();
 
         SellerOrderDetailResponse detail = sellerOrderService.getOrderDetail(seller.getId(), orderId);
         assertEquals(orderId, detail.orderId());
@@ -230,11 +231,16 @@ class SellerOrderServiceIT extends BasePostgresRedisIntegrationTest {
 
     @Test
     void fulfillmentFlowShipThenDeliverShouldTransitionStates() {
-        UUID orderId = paidOrderId();
+        UUID orderId = confirmedOrderId();
+
+        Order beforeShip = orderRepository.findById(orderId).orElseThrow();
+        assertEquals(OrderStatus.CONFIRMED, beforeShip.getStatus());
+        assertEquals(OrderPaymentStatus.UNPAID, beforeShip.getPaymentStatus());
 
         SellerOrderDetailResponse shipped = sellerOrderService.shipOrder(seller.getId(), orderId);
         assertEquals(FulfillmentStatus.SHIPPED.name(), shipped.fulfillmentStatus());
         assertEquals(OrderStatus.FULFILLED.name(), shipped.status());
+        assertEquals(OrderPaymentStatus.UNPAID.name(), shipped.paymentStatus());
 
         SellerOrderDetailResponse delivered = sellerOrderService.deliverOrder(seller.getId(), orderId);
         assertEquals(FulfillmentStatus.DELIVERED.name(), delivered.fulfillmentStatus());
@@ -243,25 +249,27 @@ class SellerOrderServiceIT extends BasePostgresRedisIntegrationTest {
         Order persisted = orderRepository.findById(orderId).orElseThrow();
         assertEquals(FulfillmentStatus.DELIVERED, persisted.getFulfillmentStatus());
         assertEquals(OrderStatus.DELIVERED, persisted.getStatus());
+        // COD cash is only collected when the carrier hands the order over.
+        assertEquals(OrderPaymentStatus.PAID, persisted.getPaymentStatus());
     }
 
     @Test
     void shipOrderWhenUnpaidOrForeignShouldFail() {
         CheckoutResponse checkout = checkout(1);
-        UUID unpaidOrderId = checkout.orderIds().get(0);
+        UUID unconfirmedOrderId = checkout.orderIds().get(0);
 
         AppException unpaid = assertThrows(AppException.class,
-                () -> sellerOrderService.shipOrder(seller.getId(), unpaidOrderId));
+                () -> sellerOrderService.shipOrder(seller.getId(), unconfirmedOrderId));
         assertEquals(ErrorCode.ORDER_FULFILLMENT_INVALID_STATE, unpaid.getErrorCode());
 
         AppException foreign = assertThrows(AppException.class,
-                () -> sellerOrderService.shipOrder(otherSeller.getId(), unpaidOrderId));
+                () -> sellerOrderService.shipOrder(otherSeller.getId(), unconfirmedOrderId));
         assertEquals(ErrorCode.ORDER_NOT_FOUND, foreign.getErrorCode());
     }
 
     @Test
     void deliverOrderWhenNotShippedShouldThrowInvalidState() {
-        UUID orderId = paidOrderId();
+        UUID orderId = confirmedOrderId();
 
         AppException ex = assertThrows(AppException.class,
                 () -> sellerOrderService.deliverOrder(seller.getId(), orderId));
@@ -270,7 +278,7 @@ class SellerOrderServiceIT extends BasePostgresRedisIntegrationTest {
 
     @Test
     void inventoryMovementLedgerShouldRecordInitialReserveAndConfirm() {
-        paidOrderId();
+        confirmedOrderId();
 
         PagedResponse<InventoryMovementResponse> movements = inventoryService.listMovements(
                 variant.getId(), seller.getId(), seller.getRole(), PageRequest.of(0, 20));
@@ -296,7 +304,7 @@ class SellerOrderServiceIT extends BasePostgresRedisIntegrationTest {
 
     @Test
     void getDashboardShouldAggregateCountsAndActionableOrders() {
-        UUID orderId = paidOrderId();
+        UUID orderId = confirmedOrderId();
 
         SellerDashboardResponse dashboard = sellerOrderService.getDashboard(seller.getId());
 
@@ -304,7 +312,8 @@ class SellerOrderServiceIT extends BasePostgresRedisIntegrationTest {
         assertEquals(1, dashboard.totalProducts());
         assertEquals(1, dashboard.activeProducts());
         assertEquals(1L, dashboard.orderCountsByFulfillmentStatus().get(FulfillmentStatus.READY_TO_SHIP.name()));
-        assertEquals(1L, dashboard.orderCountsByPaymentStatus().get("PAID"));
+        // COD confirms fulfillment immediately but stays UNPAID until delivery collects cash.
+        assertEquals(1L, dashboard.orderCountsByPaymentStatus().get("UNPAID"));
         assertEquals(1, dashboard.latestActionableOrders().size());
         assertEquals(orderId, dashboard.latestActionableOrders().get(0).orderId());
 

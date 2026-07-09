@@ -30,6 +30,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CheckoutSettlementServiceImpl implements CheckoutSettlementService {
 
+    /** Matches payment.model.PaymentMethod.COD#name() — order module stays decoupled from payment's enum. */
+    private static final String COD_METHOD = "COD";
+
     private final CheckoutSessionRepository checkoutSessionRepository;
     private final InventoryReservationRepository inventoryReservationRepository;
     private final OrderRepository orderRepository;
@@ -84,7 +87,13 @@ public class CheckoutSettlementServiceImpl implements CheckoutSettlementService 
             return false;
         }
 
-        payableOrders.forEach(order -> order.markPaid(paymentMethod));
+        payableOrders.forEach(order -> {
+            if (COD_METHOD.equals(paymentMethod)) {
+                order.confirmCod(paymentMethod);
+            } else {
+                order.markPaid(paymentMethod);
+            }
+        });
         orderRepository.saveAll(payableOrders);
 
         session.complete();

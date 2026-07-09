@@ -36,8 +36,11 @@ public class PaymentController {
     @Operation(
             summary = "Initiate a payment attempt",
             description = "Creates a payment attempt for the buyer's PENDING_PAYMENT checkout session. "
-                    + "COD settles inventory and orders immediately; VNPAY returns a sandbox payment URL "
-                    + "in nextAction. Only one non-terminal attempt may exist per session.",
+                    + "COD confirms inventory and the order immediately (status CONFIRMED, fulfillment "
+                    + "READY_TO_SHIP) but leaves it UNPAID until the seller marks it delivered — cash is "
+                    + "collected on delivery, not at initiate time. VNPAY returns a sandbox payment URL "
+                    + "in nextAction and only marks the order PAID once the webhook confirms the gateway "
+                    + "charge. Only one non-terminal attempt may exist per session.",
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
