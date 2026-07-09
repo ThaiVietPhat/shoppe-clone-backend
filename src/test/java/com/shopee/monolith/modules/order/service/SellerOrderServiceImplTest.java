@@ -244,6 +244,22 @@ class SellerOrderServiceImplTest {
     }
 
     @Test
+    void getDashboardShouldExcludeDeletedProductsFromTotal() {
+        stubOwnShop();
+        when(productService.countShopProductsByStatus(shopId))
+                .thenReturn(Map.of("ACTIVE", 3L, "DRAFT", 2L, "DELETED", 4L));
+        when(orderRepository.countByShopIdGroupByFulfillmentStatus(shopId)).thenReturn(List.of());
+        when(orderRepository.countByShopIdGroupByPaymentStatus(shopId)).thenReturn(List.of());
+        when(orderRepository.findTop5ByShopIdAndFulfillmentStatusOrderByCreatedAtDesc(
+                shopId, FulfillmentStatus.READY_TO_SHIP)).thenReturn(List.of());
+
+        SellerDashboardResponse dashboard = sellerOrderService.getDashboard(sellerId);
+
+        assertEquals(5, dashboard.totalProducts());
+        assertEquals(3, dashboard.activeProducts());
+    }
+
+    @Test
     void getDashboardWhenShopEmptyShouldReturnZeroCounts() {
         stubOwnShop();
         when(productService.countShopProductsByStatus(shopId)).thenReturn(Map.of());

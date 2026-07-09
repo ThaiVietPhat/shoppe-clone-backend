@@ -14,6 +14,7 @@ import com.shopee.monolith.modules.order.model.FulfillmentStatus;
 import com.shopee.monolith.modules.order.model.OrderPaymentStatus;
 import com.shopee.monolith.modules.order.repository.OrderItemRepository;
 import com.shopee.monolith.modules.order.repository.OrderRepository;
+import com.shopee.monolith.modules.product.entity.ProductStatus;
 import com.shopee.monolith.modules.product.service.ProductService;
 import com.shopee.monolith.modules.user.dto.internal.ShopLookupData;
 import com.shopee.monolith.modules.user.service.ShopService;
@@ -113,7 +114,10 @@ public class SellerOrderServiceImpl implements SellerOrderService {
 
         return SellerDashboardResponse.builder()
                 .shopId(shopId)
-                .totalProducts(productCounts.values().stream().mapToLong(Long::longValue).sum())
+                .totalProducts(productCounts.entrySet().stream()
+                        .filter(entry -> !ProductStatus.DELETED.name().equals(entry.getKey()))
+                        .mapToLong(Map.Entry::getValue)
+                        .sum())
                 .activeProducts(productCounts.getOrDefault("ACTIVE", 0L))
                 .productCountsByStatus(productCounts)
                 .orderCountsByFulfillmentStatus(fulfillmentCounts)
