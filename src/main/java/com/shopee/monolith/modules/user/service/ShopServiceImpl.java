@@ -10,6 +10,7 @@ import com.shopee.monolith.modules.user.dto.internal.ShopLookupData;
 import com.shopee.monolith.modules.user.dto.internal.UserAuthenticationData;
 import com.shopee.monolith.modules.user.dto.request.CreateShopRequest;
 import com.shopee.monolith.modules.user.dto.request.UpdateShopRequest;
+import com.shopee.monolith.modules.user.dto.response.AddressResponse;
 import com.shopee.monolith.modules.user.dto.response.ShopResponse;
 import com.shopee.monolith.modules.user.entity.Shop;
 import com.shopee.monolith.modules.user.mapper.ShopMapper;
@@ -35,6 +36,7 @@ public class ShopServiceImpl implements ShopService {
     private final ShopMapper shopMapper;
     private final UserService userService;
     private final MediaService mediaService;
+    private final AddressService addressService;
 
     @Override
     @Transactional
@@ -50,8 +52,12 @@ public class ShopServiceImpl implements ShopService {
             throw new AppException(ErrorCode.SHOP_ALREADY_EXISTS);
         }
 
+        addressService.findAddressByIdAndUserId(request.addressId(), ownerId)
+                .orElseThrow(() -> new AppException(ErrorCode.ADDRESS_NOT_FOUND));
+
         Shop shop = Shop.builder()
                 .ownerId(ownerId)
+                .addressId(request.addressId())
                 .name(request.name())
                 .description(request.description())
                 .build();
@@ -115,10 +121,14 @@ public class ShopServiceImpl implements ShopService {
     private ShopResponse toResponse(Shop shop) {
         MediaAssetResponse logo = mediaService.findLatestReadyMedia(shop.getId(), MediaOwnerTypeCode.SHOP, MediaPurposeCode.SHOP_LOGO)
                 .orElse(null);
+        AddressResponse address = shop.getAddressId() != null
+                ? addressService.findAddressByIdAndUserId(shop.getAddressId(), shop.getOwnerId()).orElse(null)
+                : null;
         return ShopResponse.builder()
                 .id(shop.getId())
                 .ownerId(shop.getOwnerId())
                 .name(shop.getName())
+                .address(address)
                 .description(shop.getDescription())
                 .rating(shop.getRating())
                 .logo(logo)

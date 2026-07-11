@@ -20,6 +20,9 @@ public record ShopResponse(
         @Schema(description = "Shop name", example = "Shopee Mall Demo")
         String name,
 
+        @Schema(description = "Shop's business address, if set")
+        AddressResponse address,
+
         @Schema(description = "Shop description", example = "Official store for demo products")
         String description,
 

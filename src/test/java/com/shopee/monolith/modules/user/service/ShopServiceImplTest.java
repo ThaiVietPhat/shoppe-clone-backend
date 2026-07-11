@@ -9,6 +9,7 @@ import com.shopee.monolith.modules.user.dto.internal.ShopLookupData;
 import com.shopee.monolith.modules.user.dto.internal.UserAuthenticationData;
 import com.shopee.monolith.modules.user.dto.request.CreateShopRequest;
 import com.shopee.monolith.modules.user.dto.request.UpdateShopRequest;
+import com.shopee.monolith.modules.user.dto.response.AddressResponse;
 import com.shopee.monolith.modules.user.dto.response.ShopResponse;
 import com.shopee.monolith.modules.user.entity.Shop;
 import com.shopee.monolith.modules.user.mapper.ShopMapper;
@@ -54,11 +55,15 @@ class ShopServiceImplTest {
     @Mock
     private MediaService mediaService;
 
+    @Mock
+    private AddressService addressService;
+
     @InjectMocks
     private ShopServiceImpl shopService;
 
     private final UUID ownerId = UUID.randomUUID();
     private final UUID shopId = UUID.randomUUID();
+    private final UUID addressId = UUID.randomUUID();
     private CreateShopRequest createRequest;
     private UpdateShopRequest updateRequest;
     private UserAuthenticationData activeUser;
@@ -66,12 +71,14 @@ class ShopServiceImplTest {
     private Shop shop;
     private ShopResponse shopResponse;
     private ShopLookupData lookupData;
+    private AddressResponse addressResponse;
 
     @BeforeEach
     void setUp() {
         createRequest = CreateShopRequest.builder()
                 .name("Official Shop")
                 .description("Shop description")
+                .addressId(addressId)
                 .build();
 
         updateRequest = UpdateShopRequest.builder()
@@ -96,6 +103,7 @@ class ShopServiceImplTest {
         shop = Shop.builder()
                 .id(shopId)
                 .ownerId(ownerId)
+                .addressId(addressId)
                 .name("Official Shop")
                 .description("Shop description")
                 .rating(BigDecimal.ZERO)
@@ -103,10 +111,26 @@ class ShopServiceImplTest {
                 .updatedAt(Instant.now())
                 .build();
 
+        addressResponse = AddressResponse.builder()
+                .id(addressId)
+                .userId(ownerId)
+                .recipientName("Official Shop")
+                .phone("0987654321")
+                .addressLine("123 Main Street")
+                .wardCode("20314")
+                .wardName("Phường Liễu Giai")
+                .districtCode("1442")
+                .districtName("Quận Ba Đình")
+                .provinceCode("201")
+                .provinceName("Thành phố Hà Nội")
+                .isDefault(true)
+                .build();
+
         shopResponse = ShopResponse.builder()
                 .id(shopId)
                 .ownerId(ownerId)
                 .name("Official Shop")
+                .address(addressResponse)
                 .description("Shop description")
                 .rating(BigDecimal.ZERO)
                 .createdAt(shop.getCreatedAt())
@@ -124,6 +148,10 @@ class ShopServiceImplTest {
         org.mockito.Mockito.lenient()
                 .when(mediaService.findLatestReadyMedia(shopId, MediaOwnerTypeCode.SHOP, MediaPurposeCode.SHOP_LOGO))
                 .thenReturn(Optional.empty());
+
+        org.mockito.Mockito.lenient()
+                .when(addressService.findAddressByIdAndUserId(addressId, ownerId))
+                .thenReturn(Optional.of(addressResponse));
     }
 
     @Test
@@ -157,6 +185,19 @@ class ShopServiceImplTest {
 
         assertEquals(ErrorCode.ACCOUNT_NOT_ACTIVE, ex.getErrorCode());
         verify(shopRepository, never()).saveAndFlush(any(Shop.class));
+    }
+
+    @Test
+    void createShopWhenAddressDoesNotBelongToOwnerShouldThrowAddressNotFound() {
+        when(userService.findAuthenticationDataById(ownerId)).thenReturn(Optional.of(activeUser));
+        when(shopRepository.existsByOwnerId(ownerId)).thenReturn(false);
+        when(addressService.findAddressByIdAndUserId(addressId, ownerId)).thenReturn(Optional.empty());
+
+        AppException ex = assertThrows(AppException.class, () -> shopService.createShop(ownerId, createRequest));
+
+        assertEquals(ErrorCode.ADDRESS_NOT_FOUND, ex.getErrorCode());
+        verify(shopRepository, never()).saveAndFlush(any(Shop.class));
+        verify(userService, never()).promoteToSeller(any());
     }
 
     @Test

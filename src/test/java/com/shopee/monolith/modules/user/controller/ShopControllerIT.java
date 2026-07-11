@@ -6,10 +6,12 @@ import com.shopee.monolith.common.exception.ErrorCode;
 import com.shopee.monolith.modules.auth.security.JwtTokenProvider;
 import com.shopee.monolith.modules.user.dto.request.CreateShopRequest;
 import com.shopee.monolith.modules.user.dto.request.UpdateShopRequest;
+import com.shopee.monolith.modules.user.entity.Address;
 import com.shopee.monolith.modules.user.entity.Shop;
 import com.shopee.monolith.modules.user.entity.User;
 import com.shopee.monolith.modules.user.model.Role;
 import com.shopee.monolith.modules.user.model.UserStatus;
+import com.shopee.monolith.modules.user.repository.AddressRepository;
 import com.shopee.monolith.modules.user.repository.ShopRepository;
 import com.shopee.monolith.modules.user.repository.UserRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -45,6 +47,9 @@ class ShopControllerIT extends BasePostgresRedisIntegrationTest {
     private ShopRepository shopRepository;
 
     @Autowired
+    private AddressRepository addressRepository;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
     private User activeUser;
@@ -76,14 +81,34 @@ class ShopControllerIT extends BasePostgresRedisIntegrationTest {
     @AfterEach
     void tearDown() {
         shopRepository.deleteAll();
+        addressRepository.deleteAll();
         userRepository.deleteAll();
+    }
+
+    private UUID saveAddressFor(User owner) {
+        Address address = Address.builder()
+                .userId(owner.getId())
+                .recipientName("Test Recipient")
+                .phone("0987654321")
+                .addressLine("123 Main Street")
+                .wardCode("20314")
+                .wardName("Phường Liễu Giai")
+                .districtCode("1442")
+                .districtName("Quận Ba Đình")
+                .provinceCode("201")
+                .provinceName("Thành phố Hà Nội")
+                .isDefault(true)
+                .build();
+        return addressRepository.save(address).getId();
     }
 
     @Test
     void createShopWhenActiveUserAndValidRequestShouldSucceed() throws Exception {
+        UUID addressId = saveAddressFor(activeUser);
         CreateShopRequest request = CreateShopRequest.builder()
                 .name("Official Active Shop")
                 .description("Active description")
+                .addressId(addressId)
                 .build();
 
         mockMvc.perform(post("/api/shops")
@@ -101,9 +126,11 @@ class ShopControllerIT extends BasePostgresRedisIntegrationTest {
 
     @Test
     void createShopWhenInactiveUserShouldReturn403Forbidden() throws Exception {
+        UUID addressId = saveAddressFor(inactiveUser);
         CreateShopRequest request = CreateShopRequest.builder()
                 .name("Official Inactive Shop")
                 .description("Inactive description")
+                .addressId(addressId)
                 .build();
 
         mockMvc.perform(post("/api/shops")
@@ -136,8 +163,10 @@ class ShopControllerIT extends BasePostgresRedisIntegrationTest {
                 .build();
         shopRepository.save(shop);
 
+        UUID addressId = saveAddressFor(activeUser);
         CreateShopRequest request = CreateShopRequest.builder()
                 .name("Second Shop")
+                .addressId(addressId)
                 .build();
 
         mockMvc.perform(post("/api/shops")

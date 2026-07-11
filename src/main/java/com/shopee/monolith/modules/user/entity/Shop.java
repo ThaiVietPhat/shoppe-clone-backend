@@ -24,6 +24,9 @@ public class Shop extends BaseEntity {
     @Column(name = "owner_id", nullable = false, unique = true)
     private UUID ownerId;
 
+    @Column(name = "address_id")
+    private UUID addressId;
+
     @Column(name = "name", nullable = false, length = 255)
     private String name;
 

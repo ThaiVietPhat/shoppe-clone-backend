@@ -90,6 +90,7 @@ class BuyerOrderServiceIT extends BasePostgresRedisIntegrationTest {
     private User otherBuyer;
     private User seller;
     private Shop shop;
+    private Category category;
     private ProductVariant variant;
     private Address defaultAddress;
 
@@ -134,7 +135,7 @@ class BuyerOrderServiceIT extends BasePostgresRedisIntegrationTest {
                 .name("Order Shop")
                 .build());
 
-        Category category = categoryRepository.save(Category.builder().name("Order Category").build());
+        category = categoryRepository.save(Category.builder().name("Order Category").build());
 
         Product product = productRepository.save(Product.builder()
                 .shopId(shop.getId())
@@ -166,7 +167,11 @@ class BuyerOrderServiceIT extends BasePostgresRedisIntegrationTest {
         inventoryRepository.deleteAll();
         productVariantRepository.deleteAll();
         productRepository.deleteAll();
-        categoryRepository.deleteAll();
+        // Delete only the category this test created — categories now also holds hierarchical
+        // seed data (V25 migration) that a blanket deleteAll() would violate FK constraints on.
+        if (category != null) {
+            categoryRepository.delete(category);
+        }
         shopRepository.deleteAll();
         userRepository.deleteAll();
     }
