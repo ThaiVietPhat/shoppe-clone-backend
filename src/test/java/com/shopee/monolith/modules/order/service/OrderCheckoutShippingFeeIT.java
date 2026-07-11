@@ -93,6 +93,7 @@ class OrderCheckoutShippingFeeIT extends BasePostgresRedisIntegrationTest {
     private Shop shop;
     private ProductVariant variant;
     private Address defaultAddress;
+    private Category category;
 
     @BeforeEach
     void setUp() {
@@ -131,7 +132,7 @@ class OrderCheckoutShippingFeeIT extends BasePostgresRedisIntegrationTest {
                 .name("Fee Shop")
                 .build());
 
-        Category category = categoryRepository.save(Category.builder().name("Fee Cat").build());
+        category = categoryRepository.save(Category.builder().name("Fee Cat").build());
 
         Product product = productRepository.save(Product.builder()
                 .shopId(shop.getId())
@@ -164,7 +165,9 @@ class OrderCheckoutShippingFeeIT extends BasePostgresRedisIntegrationTest {
         inventoryRepository.deleteAll();
         productVariantRepository.deleteAll();
         productRepository.deleteAll();
-        categoryRepository.deleteAll();
+        if (category != null) {
+            categoryRepository.delete(category);
+        }
         shopRepository.deleteAll();
         userRepository.deleteAll();
     }

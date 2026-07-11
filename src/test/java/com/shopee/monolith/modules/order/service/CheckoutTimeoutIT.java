@@ -86,6 +86,7 @@ class CheckoutTimeoutIT extends BasePostgresRedisIntegrationTest {
     private User seller;
     private Shop shop;
     private ProductVariant variant;
+    private Category category;
 
     @BeforeEach
     void setUp() {
@@ -113,7 +114,7 @@ class CheckoutTimeoutIT extends BasePostgresRedisIntegrationTest {
                 .build();
         shop = shopRepository.save(shop);
 
-        Category category = Category.builder()
+        category = Category.builder()
                 .name("Timeout Category")
                 .build();
         category = categoryRepository.save(category);
@@ -146,7 +147,9 @@ class CheckoutTimeoutIT extends BasePostgresRedisIntegrationTest {
         inventoryRepository.deleteAll();
         productVariantRepository.deleteAll();
         productRepository.deleteAll();
-        categoryRepository.deleteAll();
+        if (category != null) {
+            categoryRepository.delete(category);
+        }
         shopRepository.deleteAll();
         userRepository.deleteAll();
     }

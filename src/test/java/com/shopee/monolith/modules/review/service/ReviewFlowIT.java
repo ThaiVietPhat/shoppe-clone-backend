@@ -129,6 +129,7 @@ class ReviewFlowIT extends BasePostgresRedisIntegrationTest {
     private Product product;
     private ProductVariant variant;
     private Address defaultAddress;
+    private Category category;
 
     @BeforeEach
     void setUp() {
@@ -164,7 +165,7 @@ class ReviewFlowIT extends BasePostgresRedisIntegrationTest {
                 .name("Review IT Shop")
                 .build());
 
-        Category category = categoryRepository.save(Category.builder().name("Review IT Category").build());
+        category = categoryRepository.save(Category.builder().name("Review IT Category").build());
 
         product = productRepository.save(Product.builder()
                 .shopId(shop.getId())
@@ -201,7 +202,9 @@ class ReviewFlowIT extends BasePostgresRedisIntegrationTest {
         inventoryRepository.deleteAll();
         productVariantRepository.deleteAll();
         productRepository.deleteAll();
-        categoryRepository.deleteAll();
+        if (category != null) {
+            categoryRepository.delete(category);
+        }
         shopRepository.deleteAll();
         userRepository.deleteAll();
     }

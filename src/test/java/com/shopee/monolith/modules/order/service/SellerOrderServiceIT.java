@@ -98,6 +98,7 @@ class SellerOrderServiceIT extends BasePostgresRedisIntegrationTest {
     private Shop shop;
     private ProductVariant variant;
     private Address defaultAddress;
+    private Category category;
 
     @BeforeEach
     void setUp() {
@@ -145,7 +146,7 @@ class SellerOrderServiceIT extends BasePostgresRedisIntegrationTest {
                 .name("Other Seller Shop")
                 .build());
 
-        Category category = categoryRepository.save(Category.builder().name("Seller IT Category").build());
+        category = categoryRepository.save(Category.builder().name("Seller IT Category").build());
 
         Product product = productRepository.save(Product.builder()
                 .shopId(shop.getId())
@@ -178,7 +179,9 @@ class SellerOrderServiceIT extends BasePostgresRedisIntegrationTest {
         inventoryRepository.deleteAll();
         productVariantRepository.deleteAll();
         productRepository.deleteAll();
-        categoryRepository.deleteAll();
+        if (category != null) {
+            categoryRepository.delete(category);
+        }
         shopRepository.deleteAll();
         userRepository.deleteAll();
     }

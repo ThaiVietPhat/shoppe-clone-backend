@@ -120,7 +120,9 @@ class InventoryConcurrencyIT extends BasePostgresRedisIntegrationTest {
         inventoryRepository.deleteAll();
         productVariantRepository.deleteAll();
         productRepository.deleteAll();
-        categoryRepository.deleteAll();
+        if (category != null) {
+            categoryRepository.delete(category);
+        }
         shopRepository.deleteAll();
         userRepository.deleteAll();
     }

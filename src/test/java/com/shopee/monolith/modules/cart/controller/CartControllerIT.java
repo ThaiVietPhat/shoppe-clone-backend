@@ -76,6 +76,7 @@ class CartControllerIT extends BasePostgresRedisIntegrationTest {
     private String buyerToken;
     private ProductVariant variant;
     private ProductVariant zeroPriceVariant;
+    private Category category;
 
     @BeforeEach
     void setUp() {
@@ -104,7 +105,7 @@ class CartControllerIT extends BasePostgresRedisIntegrationTest {
                 .build();
         shop = shopRepository.save(shop);
 
-        Category category = Category.builder()
+        category = Category.builder()
                 .name("Cart Controller Category")
                 .build();
         category = categoryRepository.save(category);
@@ -143,7 +144,9 @@ class CartControllerIT extends BasePostgresRedisIntegrationTest {
         }
         productVariantRepository.deleteAll();
         productRepository.deleteAll();
-        categoryRepository.deleteAll();
+        if (category != null) {
+            categoryRepository.delete(category);
+        }
         shopRepository.deleteAll();
         userRepository.deleteAll();
     }

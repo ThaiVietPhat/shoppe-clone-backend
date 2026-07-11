@@ -99,6 +99,7 @@ class OrderControllerIT extends BasePostgresRedisIntegrationTest {
     private String buyerToken;
     private ProductVariant variant;
     private Address defaultAddress;
+    private Category category;
 
     @BeforeEach
     void setUp() {
@@ -142,7 +143,7 @@ class OrderControllerIT extends BasePostgresRedisIntegrationTest {
                 .build();
         shop = shopRepository.save(shop);
 
-        Category category = Category.builder()
+        category = Category.builder()
                 .name("Order Ctrl Category")
                 .build();
         category = categoryRepository.save(category);
@@ -181,7 +182,9 @@ class OrderControllerIT extends BasePostgresRedisIntegrationTest {
         inventoryRepository.deleteAll();
         productVariantRepository.deleteAll();
         productRepository.deleteAll();
-        categoryRepository.deleteAll();
+        if (category != null) {
+            categoryRepository.delete(category);
+        }
         shopRepository.deleteAll();
         userRepository.deleteAll();
     }

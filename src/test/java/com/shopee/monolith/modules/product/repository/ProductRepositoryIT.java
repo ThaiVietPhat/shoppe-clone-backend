@@ -91,7 +91,6 @@ class ProductRepositoryIT extends BasePostgresRedisIntegrationTest {
         if (parentCategory != null) {
             categoryRepository.delete(parentCategory);
         }
-        categoryRepository.deleteAll();
         shopRepository.deleteAll();
         userRepository.deleteAll();
     }

@@ -144,7 +144,6 @@ class HomepageAndCategoryBrowseIT extends BasePostgresRedisIntegrationTest {
         if (parentCategory != null && parentCategory.getId() != null) {
             categoryRepository.deleteById(parentCategory.getId());
         }
-        categoryRepository.deleteAll();
         shopRepository.deleteAll();
         userRepository.deleteAll();
     }
