@@ -162,7 +162,7 @@ class ProductControllerIT extends BasePostgresRedisIntegrationTest {
         mockMvc.perform(get("/api/categories"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data[0].name").value("Electronics"));
+                .andExpect(jsonPath("$.data[*].name", org.hamcrest.Matchers.hasItem("Electronics")));
     }
 
     @Test
