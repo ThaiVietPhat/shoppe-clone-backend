@@ -6,6 +6,7 @@ import com.shopee.monolith.common.response.PagedResponse;
 import com.shopee.monolith.modules.inventory.dto.command.ConfirmInventoryCommand;
 import com.shopee.monolith.modules.inventory.dto.command.ReleaseInventoryCommand;
 import com.shopee.monolith.modules.inventory.dto.command.ReserveInventoryCommand;
+import com.shopee.monolith.modules.inventory.dto.command.RestockInventoryCommand;
 import com.shopee.monolith.modules.inventory.dto.internal.InventoryStockSummary;
 import com.shopee.monolith.modules.inventory.dto.response.InventoryMovementResponse;
 import com.shopee.monolith.modules.inventory.dto.response.InventoryResponse;
@@ -282,6 +283,54 @@ public class InventoryServiceImpl implements InventoryService {
             }
             inventory.release(cmd.quantity());
             movements.add(buildMovement(inventory, InventoryMovementType.RELEASE, cmd.quantity()));
+        }
+
+        inventoryRepository.saveAll(inventories);
+        inventoryMovementRepository.saveAll(movements);
+    }
+
+    @Override
+    @Transactional
+    public void restock(List<RestockInventoryCommand> commands) {
+        if (commands == null || commands.isEmpty()) {
+            return;
+        }
+
+        for (RestockInventoryCommand cmd : commands) {
+            if (cmd.quantity() <= 0) {
+                throw new AppException(ErrorCode.INVALID_REQUEST);
+            }
+        }
+
+        List<RestockInventoryCommand> consolidated = commands.stream()
+                .collect(Collectors.groupingBy(RestockInventoryCommand::variantId,
+                        Collectors.summingInt(RestockInventoryCommand::quantity)))
+                .entrySet().stream()
+                .map(entry -> new RestockInventoryCommand(entry.getKey(), entry.getValue()))
+                .sorted(Comparator.comparing(cmd -> cmd.variantId().toString()))
+                .toList();
+
+        List<UUID> variantIds = consolidated.stream()
+                .map(RestockInventoryCommand::variantId)
+                .toList();
+
+        List<Inventory> inventories = inventoryRepository.findAllByVariantIdInForUpdate(variantIds);
+
+        if (inventories.size() != variantIds.size()) {
+            throw new AppException(ErrorCode.INVENTORY_NOT_FOUND);
+        }
+
+        Map<UUID, Inventory> inventoryMap = inventories.stream()
+                .collect(Collectors.toMap(Inventory::getVariantId, Function.identity()));
+
+        List<InventoryMovement> movements = new ArrayList<>();
+        for (RestockInventoryCommand cmd : consolidated) {
+            Inventory inventory = inventoryMap.get(cmd.variantId());
+            if (inventory == null) {
+                throw new AppException(ErrorCode.INVENTORY_NOT_FOUND);
+            }
+            inventory.restock(cmd.quantity());
+            movements.add(buildMovement(inventory, InventoryMovementType.RETURN_RESTOCK, cmd.quantity()));
         }
 
         inventoryRepository.saveAll(inventories);

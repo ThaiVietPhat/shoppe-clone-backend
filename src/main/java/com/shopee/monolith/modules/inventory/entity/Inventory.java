@@ -73,4 +73,14 @@ public class Inventory extends BaseEntity {
         this.reservedStock -= quantity;
         this.availableStock += quantity;
     }
+
+    /**
+     * Restocks previously-sold, already-confirmed units after an approved return — unlike
+     * {@link #release}, this never touches reservedStock, since that reservation was already
+     * consumed by {@link #confirm} at checkout time; there's nothing left to "release" here.
+     * Caller must hold a pessimistic write lock on this row.
+     */
+    public void restock(int quantity) {
+        this.availableStock += quantity;
+    }
 }

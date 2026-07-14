@@ -80,7 +80,8 @@ public class SellerOrderServiceImpl implements SellerOrderService {
         order.ship();
         order = orderRepository.save(order);
         eventPublisher.publishEvent(new OrderFulfillmentChangedEvent(
-                order.getId(), order.getBuyerId(), order.getFulfillmentStatus().name()));
+                order.getId(), order.getBuyerId(), order.getShopId(), order.getItemsSubtotal(),
+                order.getFulfillmentStatus().name()));
         log.info("Seller {} shipped order {}", sellerId, orderId);
         return toDetail(order);
     }
@@ -92,7 +93,8 @@ public class SellerOrderServiceImpl implements SellerOrderService {
         order.deliver();
         order = orderRepository.save(order);
         eventPublisher.publishEvent(new OrderFulfillmentChangedEvent(
-                order.getId(), order.getBuyerId(), order.getFulfillmentStatus().name()));
+                order.getId(), order.getBuyerId(), order.getShopId(), order.getItemsSubtotal(),
+                order.getFulfillmentStatus().name()));
         log.info("Seller {} marked order {} delivered", sellerId, orderId);
         return toDetail(order);
     }

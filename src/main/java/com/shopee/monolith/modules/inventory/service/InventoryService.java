@@ -3,6 +3,7 @@ package com.shopee.monolith.modules.inventory.service;
 import com.shopee.monolith.modules.inventory.dto.command.ConfirmInventoryCommand;
 import com.shopee.monolith.modules.inventory.dto.command.ReleaseInventoryCommand;
 import com.shopee.monolith.modules.inventory.dto.command.ReserveInventoryCommand;
+import com.shopee.monolith.modules.inventory.dto.command.RestockInventoryCommand;
 import com.shopee.monolith.common.response.PagedResponse;
 import com.shopee.monolith.modules.inventory.dto.internal.InventoryStockSummary;
 import com.shopee.monolith.modules.inventory.dto.response.InventoryMovementResponse;
@@ -27,6 +28,12 @@ public interface InventoryService {
     void confirm(List<ConfirmInventoryCommand> commands);
 
     void release(List<ReleaseInventoryCommand> commands);
+
+    /**
+     * Restocks already-confirmed (sold) units after an approved return/dispute — distinct from
+     * {@link #release}, which only reverses a still-open RESERVED reservation.
+     */
+    void restock(List<RestockInventoryCommand> commands);
 
     /**
      * Batch load stock summaries by variant IDs. Read-only, no locks.

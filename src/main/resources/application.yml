@@ -145,6 +145,8 @@ app:
     timeout:
       batch-size: 50
       check-delay: 10s
+    return:
+      window-days: 7
   media:
     max-file-size-mb: 10
     allowed-content-types: image/jpeg, image/png, image/webp

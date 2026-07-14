@@ -13,5 +13,7 @@ public enum InventoryMovementType {
     /** Reserved stock consumed after payment success. */
     CONFIRM,
     /** Reserved stock returned to available after cancel/timeout/failure. */
-    RELEASE
+    RELEASE,
+    /** Already-sold stock returned to available after an approved return/dispute. */
+    RETURN_RESTOCK
 }

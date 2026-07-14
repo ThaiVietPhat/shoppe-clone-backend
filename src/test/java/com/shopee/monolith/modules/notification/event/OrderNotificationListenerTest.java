@@ -10,6 +10,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -48,7 +49,8 @@ class OrderNotificationListenerTest {
         UUID buyerId = UUID.randomUUID();
         UUID orderId = UUID.randomUUID();
 
-        listener.handleFulfillmentChanged(new OrderFulfillmentChangedEvent(orderId, buyerId, "SHIPPED"));
+        listener.handleFulfillmentChanged(new OrderFulfillmentChangedEvent(
+                orderId, buyerId, UUID.randomUUID(), BigDecimal.TEN, "SHIPPED"));
 
         verify(inboxService).createNotification(eq(buyerId), eq(NotificationType.ORDER_SHIPPED),
                 anyString(), anyString(), eq("ORDER"), eq(orderId));
@@ -61,7 +63,8 @@ class OrderNotificationListenerTest {
         UUID buyerId = UUID.randomUUID();
         UUID orderId = UUID.randomUUID();
 
-        listener.handleFulfillmentChanged(new OrderFulfillmentChangedEvent(orderId, buyerId, "DELIVERED"));
+        listener.handleFulfillmentChanged(new OrderFulfillmentChangedEvent(
+                orderId, buyerId, UUID.randomUUID(), BigDecimal.TEN, "DELIVERED"));
 
         verify(inboxService).createNotification(eq(buyerId), eq(NotificationType.ORDER_DELIVERED),
                 anyString(), anyString(), eq("ORDER"), eq(orderId));
@@ -72,7 +75,7 @@ class OrderNotificationListenerTest {
     @Test
     void handleFulfillmentChangedWhenUnknownStatusShouldCreateNothing() {
         listener.handleFulfillmentChanged(new OrderFulfillmentChangedEvent(
-                UUID.randomUUID(), UUID.randomUUID(), "READY_TO_SHIP"));
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), BigDecimal.TEN, "READY_TO_SHIP"));
 
         verify(inboxService, never()).createNotification(any(), any(), anyString(), anyString(), anyString(), any());
     }

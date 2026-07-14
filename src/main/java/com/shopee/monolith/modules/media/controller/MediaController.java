@@ -74,7 +74,7 @@ public class MediaController {
             @Parameter(description = "Owner type: SHOP or USER", example = "SHOP", required = true)
             @RequestParam("ownerType") MediaOwnerTypeCode ownerType,
 
-            @Parameter(description = "Purpose: PRODUCT_IMAGE, AVATAR, SHOP_LOGO", example = "PRODUCT_IMAGE", required = true)
+            @Parameter(description = "Purpose: PRODUCT_IMAGE, AVATAR, SHOP_LOGO, RETURN_EVIDENCE", example = "PRODUCT_IMAGE", required = true)
             @RequestParam("purpose") MediaPurposeCode purpose,
 
             @AuthenticationPrincipal AccessTokenClaims claims
@@ -113,13 +113,14 @@ public class MediaController {
     }
 
     private void validateUserOwner(AccessTokenClaims claims, UUID ownerId, MediaPurposeCode purpose) {
-        if (purpose != MediaPurposeCode.AVATAR || !claims.userId().equals(ownerId)) {
+        boolean userScopedPurpose = purpose == MediaPurposeCode.AVATAR || purpose == MediaPurposeCode.RETURN_EVIDENCE;
+        if (!userScopedPurpose || !claims.userId().equals(ownerId)) {
             throw new AppException(ErrorCode.MEDIA_OWNERSHIP_VIOLATION);
         }
     }
 
     private void validateShopOwner(AccessTokenClaims claims, UUID ownerId, MediaPurposeCode purpose) {
-        if (purpose == MediaPurposeCode.AVATAR) {
+        if (purpose == MediaPurposeCode.AVATAR || purpose == MediaPurposeCode.RETURN_EVIDENCE) {
             throw new AppException(ErrorCode.INVALID_REQUEST);
         }
         ShopLookupData shop = shopService.findShopLookupDataById(ownerId)

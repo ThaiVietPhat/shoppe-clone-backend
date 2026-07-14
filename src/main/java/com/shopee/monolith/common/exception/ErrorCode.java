@@ -114,7 +114,20 @@ public enum ErrorCode {
 
     // ==================== Moderation ====================
     REPORT_NOT_FOUND(404, "Report not found"),
-    REPORT_ALREADY_RESOLVED(409, "Report has already been resolved");
+    REPORT_ALREADY_RESOLVED(409, "Report has already been resolved"),
+
+    // ==================== Wallet ====================
+    INSUFFICIENT_WALLET_BALANCE(409, "Withdraw amount exceeds available wallet balance"),
+
+    // ==================== Return / Dispute ====================
+    RETURN_NOT_FOUND(404, "Return request not found"),
+    RETURN_ALREADY_EXISTS(409, "This order already has a return request"),
+    RETURN_NOT_ELIGIBLE(409, "Order is not eligible for a return request"),
+    RETURN_WINDOW_EXPIRED(409, "Return window has expired for this order"),
+    RETURN_INVALID_STATE(409, "Return request is not in a state that allows this action"),
+
+    // ==================== Wishlist ====================
+    WISHLIST_ITEM_ALREADY_EXISTS(409, "Product is already in the wishlist");
 
     private final int httpStatus;
     private final String message;

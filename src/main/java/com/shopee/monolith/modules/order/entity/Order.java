@@ -19,6 +19,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -96,6 +97,10 @@ public class Order extends BaseEntity {
     @Column(name = "fulfillment_status", length = 30)
     private FulfillmentStatus fulfillmentStatus;
 
+    /** Set once, at {@link #deliver()} — the return eligibility window is anchored to this, not updatedAt. */
+    @Column(name = "delivered_at")
+    private Instant deliveredAt;
+
     @Version
     @Column(name = "version", nullable = false)
     @lombok.Builder.Default
@@ -148,6 +153,7 @@ public class Order extends BaseEntity {
         }
         this.fulfillmentStatus = FulfillmentStatus.DELIVERED;
         this.status = OrderStatus.DELIVERED;
+        this.deliveredAt = Instant.now();
         // COD cash is collected by the carrier at handover — this is where an unpaid COD order
         // actually becomes paid. Orders already PAID (online gateway) are left untouched.
         if (this.paymentStatus == OrderPaymentStatus.UNPAID) {
