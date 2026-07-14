@@ -41,6 +41,7 @@ public enum ErrorCode {
     ADDRESS_NOT_FOUND(404, "Address not found"),
     USER_ALREADY_BANNED(409, "User is already banned"),
     USER_ALREADY_ACTIVE(409, "User is already active"),
+    CANNOT_BAN_ADMIN(403, "Admin accounts cannot be banned"),
 
     // ==================== Shop ====================
     SHOP_NOT_FOUND(404, "Shop not found"),

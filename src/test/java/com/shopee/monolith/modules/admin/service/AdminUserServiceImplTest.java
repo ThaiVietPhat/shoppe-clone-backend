@@ -107,6 +107,18 @@ class AdminUserServiceImplTest {
     }
 
     @Test
+    void banUserWhenTargetIsAdminShouldThrow() {
+        UUID userId = UUID.randomUUID();
+        User admin = User.builder().id(userId).email("admin@shopee.local").role(Role.ADMIN).status(UserStatus.ACTIVE).build();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(admin));
+
+        AppException exception = assertThrows(AppException.class, () -> adminUserService.banUser(userId));
+        assertEquals(ErrorCode.CANNOT_BAN_ADMIN, exception.getErrorCode());
+        verify(userService, never()).banUser(any());
+        verify(sessionRevocationService, never()).logoutAll(any());
+    }
+
+    @Test
     void banUserWhenMissingShouldThrowNotFound() {
         UUID userId = UUID.randomUUID();
         when(userRepository.findById(userId)).thenReturn(Optional.empty());

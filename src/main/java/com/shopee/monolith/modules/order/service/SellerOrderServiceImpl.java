@@ -175,6 +175,7 @@ public class SellerOrderServiceImpl implements SellerOrderService {
                 .itemsSubtotal(order.getItemsSubtotal())
                 .shippingFee(order.getShippingFee())
                 .totalAmount(order.getTotalAmount())
+                .discountAmount(order.getDiscountAmount())
                 .shippingRecipientName(order.getShippingRecipientName())
                 .shippingPhone(order.getShippingPhone())
                 .shippingAddressLine(order.getShippingAddressLine())

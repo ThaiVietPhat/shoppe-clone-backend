@@ -216,6 +216,7 @@ class BuyerOrderServiceIT extends BasePostgresRedisIntegrationTest {
         assertEquals(2, detail.items().get(0).quantity());
         assertNotNull(detail.timeline());
         assertEquals("PLACED", detail.timeline().get(0).event());
+        assertEquals(0, java.math.BigDecimal.ZERO.compareTo(detail.discountAmount()));
 
         AppException exception = assertThrows(AppException.class,
                 () -> buyerOrderService.getOrderDetail(otherBuyer.getId(), orderId));

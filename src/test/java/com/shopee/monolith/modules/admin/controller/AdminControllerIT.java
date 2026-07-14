@@ -115,6 +115,16 @@ class AdminControllerIT extends BasePostgresRedisIntegrationTest {
     }
 
     @Test
+    void banAdminUserShouldReturn403AndLeaveStatusUnchanged() throws Exception {
+        mockMvc.perform(post("/api/admin/users/" + adminUser.getId() + "/ban")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isForbidden());
+
+        User stillActive = userRepository.findById(adminUser.getId()).orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals(UserStatus.ACTIVE, stillActive.getStatus());
+    }
+
+    @Test
     void suspendShopWhenNotAdminShouldReturn403() throws Exception {
         mockMvc.perform(post("/api/admin/shops/" + shop.getId() + "/suspend")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken))

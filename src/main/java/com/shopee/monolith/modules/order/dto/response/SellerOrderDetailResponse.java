@@ -39,6 +39,9 @@ public record SellerOrderDetailResponse(
         @Schema(description = "Order grand total", example = "150000.00")
         BigDecimal totalAmount,
 
+        @Schema(description = "Voucher discount applied to this order, if any", example = "0.00")
+        BigDecimal discountAmount,
+
         @Schema(description = "Recipient name from the immutable shipping snapshot", example = "Nguyen Van A")
         String shippingRecipientName,
 

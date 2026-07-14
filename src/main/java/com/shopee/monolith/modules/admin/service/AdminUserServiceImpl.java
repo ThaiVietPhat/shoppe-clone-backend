@@ -6,6 +6,7 @@ import com.shopee.monolith.common.response.PagedResponse;
 import com.shopee.monolith.modules.admin.dto.response.AdminUserResponse;
 import com.shopee.monolith.modules.auth.service.SessionRevocationService;
 import com.shopee.monolith.modules.user.entity.User;
+import com.shopee.monolith.modules.user.model.Role;
 import com.shopee.monolith.modules.user.model.UserStatus;
 import com.shopee.monolith.modules.user.repository.UserRepository;
 import com.shopee.monolith.modules.user.service.UserService;
@@ -38,6 +39,9 @@ public class AdminUserServiceImpl implements AdminUserService {
     public void banUser(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        if (user.getRole() == Role.ADMIN) {
+            throw new AppException(ErrorCode.CANNOT_BAN_ADMIN);
+        }
         if (user.getStatus() == UserStatus.LOCKED) {
             throw new AppException(ErrorCode.USER_ALREADY_BANNED);
         }
