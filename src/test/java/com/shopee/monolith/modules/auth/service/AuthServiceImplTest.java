@@ -4,10 +4,13 @@ import com.shopee.monolith.common.exception.AppException;
 import com.shopee.monolith.common.exception.ErrorCode;
 import com.shopee.monolith.common.security.EventPayloadCryptoService;
 import com.shopee.monolith.modules.auth.dto.internal.IssuedTokenPair;
+import com.shopee.monolith.modules.auth.dto.request.ForgotPasswordRequest;
 import com.shopee.monolith.modules.auth.dto.request.LoginRequest;
+import com.shopee.monolith.modules.auth.dto.request.ResetPasswordRequest;
 import com.shopee.monolith.modules.user.dto.internal.UserAuthenticationData;
 import com.shopee.monolith.modules.user.model.Role;
 import com.shopee.monolith.modules.user.model.UserStatus;
+import com.shopee.monolith.modules.user.service.PasswordResetService;
 import com.shopee.monolith.modules.user.service.UserService;
 import com.shopee.monolith.modules.user.service.UserVerificationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +26,8 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -41,6 +46,12 @@ class AuthServiceImplTest {
 
     @Mock
     private UserVerificationService userVerificationService;
+
+    @Mock
+    private PasswordResetService passwordResetService;
+
+    @Mock
+    private SessionRevocationService sessionRevocationService;
 
     @Mock
     private com.shopee.monolith.modules.auth.security.VerificationTokenGenerator verificationTokenGenerator;
@@ -72,8 +83,10 @@ class AuthServiceImplTest {
         authService = new AuthServiceImpl(
                 userService,
                 userVerificationService,
+                passwordResetService,
                 passwordEncoder,
                 refreshTokenService,
+                sessionRevocationService,
                 verificationTokenGenerator,
                 eventPayloadCryptoService,
                 eventPublisher,
@@ -421,5 +434,84 @@ class AuthServiceImplTest {
 
         assertEquals(1, successCount);
         assertEquals(1, failCount);
+    }
+
+    @Test
+    void forgotPasswordWhenUserExistsAndActiveShouldCreateTokenAndPublishEvent() {
+        String email = "test@shopee.com";
+        UUID userId = UUID.randomUUID();
+        java.time.Instant now = java.time.Instant.parse("2026-06-03T12:00:00Z");
+
+        UserAuthenticationData authData = UserAuthenticationData.builder()
+                .id(userId)
+                .email(email)
+                .role(Role.BUYER)
+                .status(UserStatus.ACTIVE)
+                .build();
+
+        when(userService.findAuthenticationDataByEmail(email)).thenReturn(Optional.of(authData));
+        when(verificationTokenGenerator.generate()).thenReturn("rawToken");
+        when(verificationTokenGenerator.hash("rawToken")).thenReturn("hashedToken");
+        when(clock.instant()).thenReturn(now);
+        when(securityProperties.getPasswordResetToken())
+                .thenReturn(new com.shopee.monolith.modules.auth.config.AuthSecurityProperties.PasswordResetTokenProperties());
+        when(eventPayloadCryptoService.encrypt("rawToken")).thenReturn("encryptedToken");
+
+        ForgotPasswordRequest request = ForgotPasswordRequest.builder().email(email).build();
+
+        authService.forgotPassword(request);
+
+        verify(passwordResetService).createPasswordResetToken(any());
+        verify(eventPublisher).publishEvent(any(com.shopee.monolith.modules.user.event.PasswordResetRequestedEvent.class));
+    }
+
+    @Test
+    void forgotPasswordWhenUserNotFoundShouldNotCreateTokenOrPublishEvent() {
+        String email = "unknown@shopee.com";
+        when(userService.findAuthenticationDataByEmail(email)).thenReturn(Optional.empty());
+
+        ForgotPasswordRequest request = ForgotPasswordRequest.builder().email(email).build();
+
+        authService.forgotPassword(request);
+
+        verify(passwordResetService, never()).createPasswordResetToken(any());
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void forgotPasswordWhenUserLockedShouldNotCreateTokenOrPublishEvent() {
+        String email = "locked@shopee.com";
+        UserAuthenticationData authData = UserAuthenticationData.builder()
+                .id(UUID.randomUUID())
+                .email(email)
+                .role(Role.BUYER)
+                .status(UserStatus.LOCKED)
+                .build();
+        when(userService.findAuthenticationDataByEmail(email)).thenReturn(Optional.of(authData));
+
+        ForgotPasswordRequest request = ForgotPasswordRequest.builder().email(email).build();
+
+        authService.forgotPassword(request);
+
+        verify(passwordResetService, never()).createPasswordResetToken(any());
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void resetPasswordShouldDelegateToPasswordResetServiceAndRevokeAllSessions() {
+        UUID userId = UUID.randomUUID();
+        java.time.Instant now = java.time.Instant.parse("2026-06-03T12:00:00Z");
+
+        when(clock.instant()).thenReturn(now);
+        when(verificationTokenGenerator.hash("rawToken")).thenReturn("hashedToken");
+        when(passwordEncoder.encode("newPassword123")).thenReturn("encodedHash");
+        when(passwordResetService.resetPassword("hashedToken", "encodedHash", now)).thenReturn(userId);
+
+        ResetPasswordRequest request = ResetPasswordRequest.builder().token("rawToken").newPassword("newPassword123").build();
+
+        authService.resetPassword(request);
+
+        verify(passwordResetService).resetPassword("hashedToken", "encodedHash", now);
+        verify(sessionRevocationService).logoutAll(userId);
     }
 }

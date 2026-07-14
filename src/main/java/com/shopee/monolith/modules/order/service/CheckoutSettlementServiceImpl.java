@@ -14,6 +14,7 @@ import com.shopee.monolith.modules.order.model.OrderStatus;
 import com.shopee.monolith.modules.order.repository.CheckoutSessionRepository;
 import com.shopee.monolith.modules.order.repository.InventoryReservationRepository;
 import com.shopee.monolith.modules.order.repository.OrderRepository;
+import com.shopee.monolith.modules.voucher.service.VoucherService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -38,6 +39,7 @@ public class CheckoutSettlementServiceImpl implements CheckoutSettlementService 
     private final OrderRepository orderRepository;
     private final InventoryService inventoryService;
     private final ApplicationEventPublisher eventPublisher;
+    private final VoucherService voucherService;
 
     @Override
     @Transactional(readOnly = true)
@@ -84,6 +86,7 @@ public class CheckoutSettlementServiceImpl implements CheckoutSettlementService 
             log.info("Checkout session {} has no payable orders — cancelling session", checkoutSessionId);
             session.cancel();
             checkoutSessionRepository.save(session);
+            voucherService.releaseVoucherUsage(checkoutSessionId);
             return false;
         }
 
@@ -98,6 +101,7 @@ public class CheckoutSettlementServiceImpl implements CheckoutSettlementService 
 
         session.complete();
         checkoutSessionRepository.save(session);
+        voucherService.confirmVoucherUsage(checkoutSessionId);
 
         List<UUID> orderIds = payableOrders.stream().map(Order::getId).toList();
         eventPublisher.publishEvent(new OrderConfirmedEvent(
@@ -151,6 +155,7 @@ public class CheckoutSettlementServiceImpl implements CheckoutSettlementService 
             session.cancel();
         }
         checkoutSessionRepository.save(session);
+        voucherService.releaseVoucherUsage(checkoutSessionId);
         log.info("Checkout session {} closed with status {}", checkoutSessionId, targetStatus);
         return true;
     }

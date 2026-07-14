@@ -105,8 +105,29 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void lockUser(UUID userId) {
+        // Pessimistic row lock only — used by callers (token issuance, session revocation) to
+        // serialize concurrent mutations for this user. Does NOT change account status; see
+        // banUser() for actually locking an account out.
         userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    @Override
+    @Transactional
+    public void banUser(UUID userId) {
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        user.lock();
+        userRepository.save(user);
+    }
+
+    @Override
+    @Transactional
+    public void unbanUser(UUID userId) {
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        user.unlock();
+        userRepository.save(user);
     }
 
     @Override

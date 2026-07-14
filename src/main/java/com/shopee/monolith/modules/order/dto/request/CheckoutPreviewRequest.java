@@ -13,5 +13,13 @@ public record CheckoutPreviewRequest(
                 example = "7a123eb4-7b7d-4bad-9bdd-2b0d7b3dcb6d",
                 requiredMode = Schema.RequiredMode.NOT_REQUIRED
         )
-        UUID addressId
+        UUID addressId,
+
+        @Schema(
+                description = "Voucher code to preview a discount for. If invalid, the preview still succeeds "
+                        + "with voucherError populated instead of failing the whole request.",
+                example = "WELCOME10",
+                requiredMode = Schema.RequiredMode.NOT_REQUIRED
+        )
+        String voucherCode
 ) {}

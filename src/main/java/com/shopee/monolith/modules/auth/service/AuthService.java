@@ -11,4 +11,8 @@ public interface AuthService {
     void verify(com.shopee.monolith.modules.auth.dto.request.VerifyRequest request);
 
     IssuedTokenPair exchangeOAuth2Code(String code);
+
+    void forgotPassword(com.shopee.monolith.modules.auth.dto.request.ForgotPasswordRequest request);
+
+    void resetPassword(com.shopee.monolith.modules.auth.dto.request.ResetPasswordRequest request);
 }

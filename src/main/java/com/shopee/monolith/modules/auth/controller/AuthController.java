@@ -15,7 +15,9 @@ import com.shopee.monolith.modules.auth.dto.response.LoginResponse;
 import com.shopee.monolith.modules.auth.service.AuthService;
 import com.shopee.monolith.modules.auth.service.RefreshTokenService;
 import com.shopee.monolith.modules.auth.service.SessionRevocationService;
+import com.shopee.monolith.modules.auth.dto.request.ForgotPasswordRequest;
 import com.shopee.monolith.modules.auth.dto.request.RegisterRequest;
+import com.shopee.monolith.modules.auth.dto.request.ResetPasswordRequest;
 import com.shopee.monolith.modules.auth.dto.request.VerifyRequest;
 import com.shopee.monolith.modules.user.dto.response.UserResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -223,6 +225,57 @@ public class AuthController {
     @PostMapping("/verify")
     public ApiResponse<Void> verify(@Valid @RequestBody VerifyRequest request) {
         authService.verify(request);
+        return ApiResponse.success();
+    }
+
+    @Operation(summary = "Forgot Password", description = "Initiates a password reset by emailing a reset link if the account exists. Always returns 200 to prevent email enumeration.")
+    @Parameter(name = "X-XSRF-TOKEN", in = ParameterIn.HEADER, required = true, description = "CSRF token retrieved from the XSRF-TOKEN cookie", schema = @Schema(type = "string"))
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Request accepted. A reset email is sent only if the account exists.",
+            content = @Content(schema = @Schema(implementation = SwaggerResponses.ApiResponseVoid.class))
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "CSRF token validation failed.",
+            content = @Content(schema = @Schema(implementation = SwaggerResponses.ApiResponseVoid.class))
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "429",
+            description = "Rate limit exceeded for password reset requests.",
+            content = @Content(schema = @Schema(implementation = SwaggerResponses.ApiResponseVoid.class))
+    )
+    @PostMapping("/forgot-password")
+    public ApiResponse<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+        return ApiResponse.success();
+    }
+
+    @Operation(summary = "Reset Password", description = "Consumes a password reset token atomically to set a new password and revokes all existing sessions.")
+    @Parameter(name = "X-XSRF-TOKEN", in = ParameterIn.HEADER, required = true, description = "CSRF token retrieved from the XSRF-TOKEN cookie", schema = @Schema(type = "string"))
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Password reset successful. All sessions for this account are revoked.",
+            content = @Content(schema = @Schema(implementation = SwaggerResponses.ApiResponseVoid.class))
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Invalid, expired, or already used password reset token.",
+            content = @Content(schema = @Schema(implementation = SwaggerResponses.ApiResponseVoid.class))
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "CSRF token validation failed, or the account is locked.",
+            content = @Content(schema = @Schema(implementation = SwaggerResponses.ApiResponseVoid.class))
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "429",
+            description = "Rate limit exceeded for password reset requests.",
+            content = @Content(schema = @Schema(implementation = SwaggerResponses.ApiResponseVoid.class))
+    )
+    @PostMapping("/reset-password")
+    public ApiResponse<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
         return ApiResponse.success();
     }
 

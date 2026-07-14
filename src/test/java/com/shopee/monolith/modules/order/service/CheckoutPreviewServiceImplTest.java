@@ -17,6 +17,7 @@ import com.shopee.monolith.modules.user.dto.internal.ShopLookupData;
 import com.shopee.monolith.modules.user.dto.response.AddressResponse;
 import com.shopee.monolith.modules.user.service.AddressService;
 import com.shopee.monolith.modules.user.service.ShopService;
+import com.shopee.monolith.modules.voucher.service.VoucherService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -53,6 +54,8 @@ class CheckoutPreviewServiceImplTest {
     private AddressService addressService;
     @Mock
     private ShippingFeeEstimator shippingFeeEstimator;
+    @Mock
+    private VoucherService voucherService;
 
     @InjectMocks
     private CheckoutPreviewServiceImpl previewService;
@@ -110,7 +113,7 @@ class CheckoutPreviewServiceImplTest {
         when(shopService.findShopLookupDataByIds(List.of(shopId))).thenReturn(Map.of(shopId, shop));
         when(shippingFeeEstimator.estimateFee(eq(shopId), any(), eq(address))).thenReturn(BigDecimal.valueOf(30000));
 
-        CheckoutPreviewResponse response = previewService.preview(buyerId, new CheckoutPreviewRequest(addressId));
+        CheckoutPreviewResponse response = previewService.preview(buyerId, new CheckoutPreviewRequest(addressId, null));
 
         assertTrue(response.allItemsValid());
         assertEquals(1, response.shops().size());
@@ -135,7 +138,7 @@ class CheckoutPreviewServiceImplTest {
         when(productService.findActiveVariantLookupDataById(variantId)).thenReturn(Optional.empty());
         when(shopService.findShopLookupDataByIds(any())).thenReturn(Map.of());
 
-        CheckoutPreviewResponse response = previewService.preview(buyerId, new CheckoutPreviewRequest(null));
+        CheckoutPreviewResponse response = previewService.preview(buyerId, new CheckoutPreviewRequest(null, null));
 
         assertFalse(response.allItemsValid());
         // Unresolvable items are excluded from shop groups but surfaced as invalidItems
@@ -158,7 +161,7 @@ class CheckoutPreviewServiceImplTest {
         when(productService.findActiveProductLookupDataById(productId)).thenReturn(Optional.empty());
         when(shopService.findShopLookupDataByIds(any())).thenReturn(Map.of());
 
-        CheckoutPreviewResponse response = previewService.preview(buyerId, new CheckoutPreviewRequest(null));
+        CheckoutPreviewResponse response = previewService.preview(buyerId, new CheckoutPreviewRequest(null, null));
 
         assertFalse(response.allItemsValid());
         assertEquals(1, response.invalidItems().size());
@@ -183,7 +186,7 @@ class CheckoutPreviewServiceImplTest {
         when(shopService.findShopLookupDataByIds(List.of(shopId))).thenReturn(Map.of(shopId, shop));
         when(shippingFeeEstimator.estimateFee(eq(shopId), any(), eq(address))).thenReturn(BigDecimal.valueOf(30000));
 
-        CheckoutPreviewResponse response = previewService.preview(buyerId, new CheckoutPreviewRequest(null));
+        CheckoutPreviewResponse response = previewService.preview(buyerId, new CheckoutPreviewRequest(null, null));
 
         assertFalse(response.allItemsValid());
         assertEquals(InvalidReasonCode.INSUFFICIENT_STOCK,
@@ -196,7 +199,7 @@ class CheckoutPreviewServiceImplTest {
         when(cartService.getSelectedSnapshot(buyerId)).thenReturn(empty);
 
         AppException ex = assertThrows(AppException.class,
-                () -> previewService.preview(buyerId, new CheckoutPreviewRequest(null)));
+                () -> previewService.preview(buyerId, new CheckoutPreviewRequest(null, null)));
         assertEquals(ErrorCode.CART_EMPTY, ex.getErrorCode());
     }
 
@@ -209,7 +212,7 @@ class CheckoutPreviewServiceImplTest {
                 .thenThrow(new AppException(ErrorCode.ADDRESS_NOT_FOUND));
 
         AppException ex = assertThrows(AppException.class,
-                () -> previewService.preview(buyerId, new CheckoutPreviewRequest(null)));
+                () -> previewService.preview(buyerId, new CheckoutPreviewRequest(null, null)));
         assertEquals(ErrorCode.ADDRESS_INVALID, ex.getErrorCode());
     }
 
@@ -227,10 +230,55 @@ class CheckoutPreviewServiceImplTest {
         when(shopService.findShopLookupDataByIds(any())).thenReturn(Map.of(shopId, shop));
         when(shippingFeeEstimator.estimateFee(any(), any(), any())).thenReturn(expectedFee);
 
-        CheckoutPreviewResponse response = previewService.preview(buyerId, new CheckoutPreviewRequest(null));
+        CheckoutPreviewResponse response = previewService.preview(buyerId, new CheckoutPreviewRequest(null, null));
 
         assertEquals(expectedFee, response.shops().get(0).shippingFee());
         assertEquals(expectedFee, response.totalShippingFee());
     }
 
+    @Test
+    void previewWhenVoucherValidShouldSubtractDiscountFromGrandTotal() {
+        CartSnapshot snapshot = CartSnapshot.builder()
+                .userId(buyerId).items(List.of(new CartSnapshotItem(variantId, 2))).version(1L).build();
+        when(cartService.getSelectedSnapshot(buyerId)).thenReturn(snapshot);
+        when(addressService.resolveCheckoutAddress(eq(buyerId), any())).thenReturn(address);
+        when(inventoryService.getStockSummariesByVariantIds(List.of(variantId)))
+                .thenReturn(Map.of(variantId, new InventoryStockSummary(variantId, 10, 0)));
+        when(productService.findActiveVariantLookupDataById(variantId)).thenReturn(Optional.of(variant));
+        when(productService.findActiveProductLookupDataById(productId)).thenReturn(Optional.of(product));
+        when(shopService.findShopLookupDataByIds(List.of(shopId))).thenReturn(Map.of(shopId, shop));
+        when(shippingFeeEstimator.estimateFee(eq(shopId), any(), eq(address))).thenReturn(BigDecimal.valueOf(30000));
+        when(voucherService.validateVoucher("WELCOME10", BigDecimal.valueOf(200)))
+                .thenReturn(com.shopee.monolith.modules.voucher.dto.response.ValidateVoucherResponse.builder()
+                        .code("WELCOME10").discountAmount(BigDecimal.valueOf(20)).build());
+
+        CheckoutPreviewResponse response = previewService.preview(buyerId, new CheckoutPreviewRequest(addressId, "WELCOME10"));
+
+        assertEquals(BigDecimal.valueOf(20), response.discountAmount());
+        assertEquals(BigDecimal.valueOf(30180), response.grandTotal());
+        assertEquals(null, response.voucherError());
+    }
+
+    @Test
+    void previewWhenVoucherInvalidShouldSurfaceErrorWithoutFailingPreview() {
+        CartSnapshot snapshot = CartSnapshot.builder()
+                .userId(buyerId).items(List.of(new CartSnapshotItem(variantId, 2))).version(1L).build();
+        when(cartService.getSelectedSnapshot(buyerId)).thenReturn(snapshot);
+        when(addressService.resolveCheckoutAddress(eq(buyerId), any())).thenReturn(address);
+        when(inventoryService.getStockSummariesByVariantIds(List.of(variantId)))
+                .thenReturn(Map.of(variantId, new InventoryStockSummary(variantId, 10, 0)));
+        when(productService.findActiveVariantLookupDataById(variantId)).thenReturn(Optional.of(variant));
+        when(productService.findActiveProductLookupDataById(productId)).thenReturn(Optional.of(product));
+        when(shopService.findShopLookupDataByIds(List.of(shopId))).thenReturn(Map.of(shopId, shop));
+        when(shippingFeeEstimator.estimateFee(eq(shopId), any(), eq(address))).thenReturn(BigDecimal.valueOf(30000));
+        when(voucherService.validateVoucher("BADCODE", BigDecimal.valueOf(200)))
+                .thenThrow(new AppException(ErrorCode.VOUCHER_NOT_FOUND));
+
+        CheckoutPreviewResponse response = previewService.preview(buyerId, new CheckoutPreviewRequest(addressId, "BADCODE"));
+
+        assertTrue(response.allItemsValid());
+        assertEquals(null, response.discountAmount());
+        assertEquals(ErrorCode.VOUCHER_NOT_FOUND.getMessage(), response.voucherError());
+        assertEquals(BigDecimal.valueOf(30200), response.grandTotal());
+    }
 }

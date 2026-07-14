@@ -1,0 +1,4 @@
+-- V31__add_shop_status_and_verified.sql
+
+ALTER TABLE shops ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE';
+ALTER TABLE shops ADD COLUMN verified BOOLEAN NOT NULL DEFAULT FALSE;

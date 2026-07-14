@@ -26,6 +26,7 @@ class NotificationPropertiesTest {
     private NotificationProperties createValidProperties() {
         NotificationProperties properties = new NotificationProperties();
         properties.setVerificationUrl("http://localhost:3000/verify-email");
+        properties.setPasswordResetUrl("http://localhost:3000/reset-password");
         properties.setSender("no-reply@shoppe.local");
         properties.getRetry().setBatchSize(50);
         properties.getRetry().setFixedDelay(Duration.ofMinutes(5));

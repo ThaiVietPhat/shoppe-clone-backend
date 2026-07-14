@@ -24,6 +24,10 @@ public class NotificationProperties {
     private String verificationUrl;
 
     @NotBlank
+    @URL(message = "Password reset URL must be a valid URL")
+    private String passwordResetUrl;
+
+    @NotBlank
     @Email(message = "Sender must be a valid email address")
     private String sender;
 

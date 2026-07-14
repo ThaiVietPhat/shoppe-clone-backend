@@ -105,6 +105,7 @@ public class OrderServiceImpl implements OrderService {
                 keyId,
                 expiresAt,
                 cartSnapshot.items(),
+                request.voucherCode(),
                 () -> cartService.clearSnapshotIfVersionUnchanged(buyerId, cartVersion)
         );
 
@@ -120,7 +121,8 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private String computeRequestBodyHash(CheckoutRequest request) {
-        String canonical = "address=" + (request.addressId() != null ? request.addressId() : "null");
+        String canonical = "address=" + (request.addressId() != null ? request.addressId() : "null")
+                + "|voucher=" + (request.voucherCode() != null ? request.voucherCode() : "null");
         return sha256Hex(canonical);
     }
 

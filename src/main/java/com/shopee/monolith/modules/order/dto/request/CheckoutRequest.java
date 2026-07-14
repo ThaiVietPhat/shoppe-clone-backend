@@ -12,5 +12,12 @@ public record CheckoutRequest(
                 example = "7a123eb4-7b7d-4bad-9bdd-2b0d7b3dcb6d",
                 requiredMode = Schema.RequiredMode.NOT_REQUIRED
         )
-        UUID addressId
+        UUID addressId,
+
+        @Schema(
+                description = "Voucher code to apply to this checkout. Re-validated server-side against the final total.",
+                example = "WELCOME10",
+                requiredMode = Schema.RequiredMode.NOT_REQUIRED
+        )
+        String voucherCode
 ) {}

@@ -4,13 +4,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shopee.monolith.BasePostgresRedisIntegrationTest;
 import com.shopee.monolith.common.exception.ErrorCode;
 import com.shopee.monolith.modules.auth.config.AuthSecurityProperties;
+import com.shopee.monolith.modules.auth.dto.request.ForgotPasswordRequest;
 import com.shopee.monolith.modules.auth.dto.request.OAuth2ExchangeRequest;
+import com.shopee.monolith.modules.auth.dto.request.ResetPasswordRequest;
 import com.shopee.monolith.modules.auth.repository.RefreshTokenRepository;
 import com.shopee.monolith.modules.auth.repository.RefreshTokenFamilyRepository;
+import com.shopee.monolith.modules.auth.security.VerificationTokenGenerator;
+import com.shopee.monolith.modules.user.entity.PasswordResetToken;
 import com.shopee.monolith.modules.user.entity.User;
 import com.shopee.monolith.modules.user.model.Role;
 import com.shopee.monolith.modules.user.model.UserStatus;
+import com.shopee.monolith.modules.user.repository.PasswordResetTokenRepository;
 import com.shopee.monolith.modules.user.repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +30,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -145,6 +152,90 @@ class AuthControllerIT extends BasePostgresRedisIntegrationTest {
 
     @Autowired
     private RefreshTokenFamilyRepository refreshTokenFamilyRepository;
+
+    @Autowired
+    private PasswordResetTokenRepository passwordResetTokenRepository;
+
+    @Autowired
+    private VerificationTokenGenerator verificationTokenGenerator;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder withCsrf(
+            org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder builder, MvcResult csrfResult) {
+        var csrfCookie = csrfResult.getResponse().getCookie(properties.getCsrf().getCookieName());
+        return builder.cookie(csrfCookie).header(properties.getCsrf().getHeaderName(), csrfCookie.getValue());
+    }
+
+    @Test
+    void forgotPasswordWhenUserExistsShouldReturn200() throws Exception {
+        User user = userRepository.save(User.builder()
+                .email("forgot-" + UUID.randomUUID() + "@example.com")
+                .passwordHash("oldHash")
+                .role(Role.BUYER)
+                .status(UserStatus.ACTIVE)
+                .build());
+
+        MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
+
+        mockMvc.perform(withCsrf(post("/api/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new ForgotPasswordRequest(user.getEmail()))), csrfResult))
+                .andExpect(status().isOk());
+
+        userRepository.delete(user);
+    }
+
+    @Test
+    void forgotPasswordWhenUserDoesNotExistShouldStillReturn200() throws Exception {
+        MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
+
+        mockMvc.perform(withCsrf(post("/api/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new ForgotPasswordRequest("nobody-" + UUID.randomUUID() + "@example.com"))), csrfResult))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void resetPasswordWhenTokenValidShouldUpdatePasswordAndRevokeSessions() throws Exception {
+        User user = userRepository.save(User.builder()
+                .email("reset-" + UUID.randomUUID() + "@example.com")
+                .passwordHash(passwordEncoder.encode("oldPassword123"))
+                .role(Role.BUYER)
+                .status(UserStatus.ACTIVE)
+                .build());
+
+        String rawToken = verificationTokenGenerator.generate();
+        String tokenHash = verificationTokenGenerator.hash(rawToken);
+        passwordResetTokenRepository.save(PasswordResetToken.builder()
+                .userId(user.getId())
+                .tokenHash(tokenHash)
+                .expiresAt(Instant.now().plus(Duration.ofMinutes(30)))
+                .build());
+
+        MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
+
+        mockMvc.perform(withCsrf(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new ResetPasswordRequest(rawToken, "newPassword456"))), csrfResult))
+                .andExpect(status().isOk());
+
+        User updated = userRepository.findById(user.getId()).orElseThrow();
+        assertTrue(passwordEncoder.matches("newPassword456", updated.getPasswordHash()));
+
+        userRepository.delete(user);
+    }
+
+    @Test
+    void resetPasswordWhenTokenInvalidShouldReturn400() throws Exception {
+        MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
+
+        mockMvc.perform(withCsrf(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new ResetPasswordRequest("not-a-real-token", "newPassword456"))), csrfResult))
+                .andExpect(status().isBadRequest());
+    }
 
     @Test
     void exchangeOAuth2CodeConcurrentlyShouldSucceedOnlyOnceOnRedisRealServer() throws Exception {

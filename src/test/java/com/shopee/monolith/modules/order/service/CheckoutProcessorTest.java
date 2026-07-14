@@ -19,6 +19,7 @@ import com.shopee.monolith.modules.product.dto.internal.ProductLookupData;
 import com.shopee.monolith.modules.product.dto.internal.VariantLookupData;
 import com.shopee.monolith.modules.product.service.ProductService;
 import com.shopee.monolith.modules.user.dto.response.AddressResponse;
+import com.shopee.monolith.modules.voucher.service.VoucherService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -59,6 +61,8 @@ class CheckoutProcessorTest {
     private ProductService productService;
     @Mock
     private ShippingFeeEstimator shippingFeeEstimator;
+    @Mock
+    private VoucherService voucherService;
 
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper().registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
@@ -127,7 +131,7 @@ class CheckoutProcessorTest {
                 .thenReturn(Optional.of(completedKey));
 
         CheckoutResponse actualResponse = checkoutProcessor.processCheckout(
-                buyerId, address, idempotencyKey, requestHash, requestBodyHash, keyId, expiresAt, List.of(), () -> {}
+                buyerId, address, idempotencyKey, requestHash, requestBodyHash, keyId, expiresAt, List.of(), null, () -> {}
         );
 
         assertNotNull(actualResponse);
@@ -164,7 +168,7 @@ class CheckoutProcessorTest {
                 .thenReturn(Optional.of(completedKey));
 
         CheckoutResponse actualResponse = checkoutProcessor.processCheckout(
-                buyerId, address, idempotencyKey, requestHash, requestBodyHash, keyId, expiresAt, List.of(), () -> {}
+                buyerId, address, idempotencyKey, requestHash, requestBodyHash, keyId, expiresAt, List.of(), null, () -> {}
         );
 
         assertNotNull(actualResponse);
@@ -191,7 +195,7 @@ class CheckoutProcessorTest {
 
         AppException exception = assertThrows(AppException.class, () ->
                 checkoutProcessor.processCheckout(
-                        buyerId, address, idempotencyKey, requestHash, requestBodyHash, keyId, expiresAt, List.of(), () -> {}
+                        buyerId, address, idempotencyKey, requestHash, requestBodyHash, keyId, expiresAt, List.of(), null, () -> {}
                 )
         );
         assertEquals(ErrorCode.IDEMPOTENCY_KEY_CONFLICT, exception.getErrorCode());
@@ -215,7 +219,7 @@ class CheckoutProcessorTest {
                 .thenReturn(Optional.of(existingKey));
 
         AppException exception = assertThrows(AppException.class, () ->
-                checkoutProcessor.processCheckout(buyerId, address, idempotencyKey, requestHash, requestBodyHash, keyId, expiresAt, List.of(), () -> {})
+                checkoutProcessor.processCheckout(buyerId, address, idempotencyKey, requestHash, requestBodyHash, keyId, expiresAt, List.of(), null, () -> {})
         );
         assertEquals(ErrorCode.IDEMPOTENCY_REQUEST_PROCESSING, exception.getErrorCode());
     }
@@ -263,13 +267,67 @@ class CheckoutProcessorTest {
         when(orderRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         CheckoutResponse response = checkoutProcessor.processCheckout(
-                buyerId, address, idempotencyKey, requestHash, requestBodyHash, keyId, expiresAt, List.of(cartItem), () -> {}
+                buyerId, address, idempotencyKey, requestHash, requestBodyHash, keyId, expiresAt, List.of(cartItem), null, () -> {}
         );
 
         assertNotNull(response);
         assertEquals(session.getId(), response.checkoutSessionId());
         verify(inventoryService).reserve(any());
         verify(inventoryReservationRepository).saveAll(any());
+    }
+
+    @Test
+    void processCheckoutWhenVoucherCodePresentShouldReserveAndApplyDiscount() {
+        UUID variantId = UUID.randomUUID();
+        CartSnapshotItem cartItem = new CartSnapshotItem(variantId, 2);
+        VariantLookupData variant = VariantLookupData.builder()
+                .id(variantId)
+                .productId(UUID.randomUUID())
+                .sku("SKU-1")
+                .name("Var 1")
+                .price(BigDecimal.TEN)
+                .build();
+        ProductLookupData product = ProductLookupData.builder()
+                .id(variant.productId())
+                .shopId(UUID.randomUUID())
+                .name("Prod 1")
+                .build();
+
+        when(idempotencyKeyRepository.tryInsert(any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(1);
+        when(productService.findActiveVariantLookupDataByIdForCheckout(variantId)).thenReturn(Optional.of(variant));
+        when(productService.findActiveProductLookupDataByIdForCheckout(variant.productId())).thenReturn(Optional.of(product));
+        when(shippingFeeEstimator.estimateFee(any(), any(), any())).thenReturn(BigDecimal.ZERO);
+        when(voucherService.reserveVoucher(eq("WELCOME10"), any(), eq(buyerId), eq(BigDecimal.valueOf(20))))
+                .thenReturn(BigDecimal.valueOf(5));
+
+        CheckoutSession session = CheckoutSession.builder()
+                .id(UUID.randomUUID())
+                .buyerId(buyerId)
+                .status(CheckoutSessionStatus.PENDING_PAYMENT)
+                .totalAmount(BigDecimal.TEN)
+                .shippingRecipientName(address.recipientName())
+                .shippingPhone(address.phone())
+                .shippingAddressLine(address.addressLine())
+                .shippingWardCode(address.wardCode())
+                .shippingWardName(address.wardName())
+                .shippingDistrictCode(address.districtCode())
+                .shippingDistrictName(address.districtName())
+                .shippingProvinceCode(address.provinceCode())
+                .shippingProvinceName(address.provinceName())
+                .expiresAt(Instant.now())
+                .build();
+        when(checkoutSessionRepository.save(any())).thenReturn(session);
+        when(orderRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CheckoutResponse response = checkoutProcessor.processCheckout(
+                buyerId, address, idempotencyKey, requestHash, requestBodyHash, keyId, expiresAt,
+                List.of(cartItem), "WELCOME10", () -> {}
+        );
+
+        assertEquals(BigDecimal.valueOf(5), response.discountAmount());
+        assertEquals(BigDecimal.valueOf(15), response.totalAmount());
+        verify(voucherService).reserveVoucher(eq("WELCOME10"), any(), eq(buyerId), eq(BigDecimal.valueOf(20)));
     }
 
     @Test
@@ -282,7 +340,7 @@ class CheckoutProcessorTest {
         when(productService.findActiveVariantLookupDataByIdForCheckout(variantId)).thenReturn(Optional.empty());
 
         AppException exception = assertThrows(AppException.class, () -> checkoutProcessor.processCheckout(
-                buyerId, address, idempotencyKey, requestHash, requestBodyHash, keyId, expiresAt, List.of(cartItem), () -> {}
+                buyerId, address, idempotencyKey, requestHash, requestBodyHash, keyId, expiresAt, List.of(cartItem), null, () -> {}
         ));
 
         assertEquals(ErrorCode.VARIANT_NOT_FOUND, exception.getErrorCode());

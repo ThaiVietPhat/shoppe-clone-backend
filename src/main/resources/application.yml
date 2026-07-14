@@ -121,6 +121,7 @@ app:
     max-quantity-per-item: 99
   notification:
     verification-url: ${FRONTEND_VERIFICATION_URL:http://localhost:3000/verify-email}
+    password-reset-url: ${FRONTEND_PASSWORD_RESET_URL:http://localhost:3000/reset-password}
     sender: ${MAIL_SENDER:no-reply@shoppe.local}
     retry:
       batch-size: 50
@@ -178,6 +179,8 @@ app:
       exchange-code-ttl: ${OAUTH2_EXCHANGE_CODE_TTL:60s}
     verification-token:
       ttl: 24h
+    password-reset-token:
+      ttl: 30m
     event-crypto:
       active-key-id: ${EVENT_CRYPTO_ACTIVE_KEY_ID:crypto-v1}
       active-secret: ${EVENT_CRYPTO_ACTIVE_SECRET}
@@ -204,6 +207,9 @@ app:
         capacity: 30
         window: 1m
       resend-verification:
+        capacity: 3
+        window: 1m
+      password-reset:
         capacity: 3
         window: 1m
       webhook:

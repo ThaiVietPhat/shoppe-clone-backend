@@ -86,6 +86,11 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             String ip = ipResolver.resolveIp(request);
             key = "rate_limit:auth:resend-verification:" + ip;
             limitProperties = properties.getRateLimit().getResendVerification();
+        } else if (path != null && (path.equals("/api/auth/forgot-password") || path.equals("/api/auth/reset-password"))
+                && "POST".equalsIgnoreCase(method)) {
+            String ip = ipResolver.resolveIp(request);
+            key = "rate_limit:auth:password-reset:" + ip;
+            limitProperties = properties.getRateLimit().getPasswordReset();
         } else if (path != null && path.equals("/api/auth/oauth2/exchange") && "POST".equalsIgnoreCase(method)) {
             String ip = ipResolver.resolveIp(request);
             key = "rate_limit:oauth2:callback:exchange:" + ip;
@@ -147,6 +152,8 @@ public class RateLimitingFilter extends OncePerRequestFilter {
                 || (path.equals("/api/auth/register") && "POST".equalsIgnoreCase(method))
                 || (path.equals("/api/auth/verify") && "POST".equalsIgnoreCase(method))
                 || (path.equals("/api/auth/resend-verification") && "POST".equalsIgnoreCase(method))
+                || (path.equals("/api/auth/forgot-password") && "POST".equalsIgnoreCase(method))
+                || (path.equals("/api/auth/reset-password") && "POST".equalsIgnoreCase(method))
                 || (path.equals("/api/auth/oauth2/exchange") && "POST".equalsIgnoreCase(method))
                 || (path.startsWith("/login/oauth2/code/") && "GET".equalsIgnoreCase(method));
     }

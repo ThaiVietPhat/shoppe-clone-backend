@@ -37,6 +37,10 @@ public class AuthSecurityProperties {
 
     @Valid
     @NotNull
+    private PasswordResetTokenProperties passwordResetToken = new PasswordResetTokenProperties();
+
+    @Valid
+    @NotNull
     private EventCryptoProperties eventCrypto = new EventCryptoProperties();
 
     @Valid
@@ -151,6 +155,12 @@ public class AuthSecurityProperties {
                 && !verificationToken.getTtl().isNegative() && !verificationToken.getTtl().isZero();
     }
 
+    @jakarta.validation.constraints.AssertTrue(message = "Password reset token TTL must be positive")
+    public boolean isPasswordResetTokenTtlValid() {
+        return passwordResetToken != null && passwordResetToken.getTtl() != null
+                && !passwordResetToken.getTtl().isNegative() && !passwordResetToken.getTtl().isZero();
+    }
+
     @jakarta.validation.constraints.AssertTrue(message = "Event active crypto secret must be at least 32 bytes")
     public boolean isEventCryptoActiveSecretValid() {
         return eventCrypto != null && eventCrypto.getActiveSecret() != null
@@ -196,6 +206,13 @@ public class AuthSecurityProperties {
 
     @Getter
     @Setter
+    public static class PasswordResetTokenProperties {
+        @NotNull
+        private java.time.Duration ttl = java.time.Duration.ofMinutes(30);
+    }
+
+    @Getter
+    @Setter
     public static class EventCryptoProperties {
         @NotBlank
         private String activeKeyId = "crypto-v1";
@@ -230,7 +247,8 @@ public class AuthSecurityProperties {
                 && isBucketLimitWindowValid(rateLimit.getRegister())
                 && isBucketLimitWindowValid(rateLimit.getVerify())
                 && isBucketLimitWindowValid(rateLimit.getOauth2Callback())
-                && isBucketLimitWindowValid(rateLimit.getResendVerification());
+                && isBucketLimitWindowValid(rateLimit.getResendVerification())
+                && isBucketLimitWindowValid(rateLimit.getPasswordReset());
     }
 
     private boolean isBucketLimitWindowValid(BucketLimitProperties limit) {
@@ -288,6 +306,10 @@ public class AuthSecurityProperties {
         @Valid
         @NotNull
         private BucketLimitProperties resendVerification = new BucketLimitProperties(3, java.time.Duration.ofMinutes(1));
+
+        @Valid
+        @NotNull
+        private BucketLimitProperties passwordReset = new BucketLimitProperties(3, java.time.Duration.ofMinutes(1));
 
         @Valid
         @NotNull

@@ -25,6 +25,10 @@ public interface UserService {
 
     void lockUser(UUID userId);
 
+    void banUser(UUID userId);
+
+    void unbanUser(UUID userId);
+
     Optional<UserAuthenticationData> findAuthenticationDataByOAuth(String provider, String providerUserId);
 
     UserResponse registerOAuthUser(String provider, String providerUserId, String email);

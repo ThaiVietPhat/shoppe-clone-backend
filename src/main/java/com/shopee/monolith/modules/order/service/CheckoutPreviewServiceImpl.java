@@ -19,6 +19,7 @@ import com.shopee.monolith.modules.user.dto.internal.ShopLookupData;
 import com.shopee.monolith.modules.user.dto.response.AddressResponse;
 import com.shopee.monolith.modules.user.service.AddressService;
 import com.shopee.monolith.modules.user.service.ShopService;
+import com.shopee.monolith.modules.voucher.service.VoucherService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +42,7 @@ public class CheckoutPreviewServiceImpl implements CheckoutPreviewService {
     private final ShopService shopService;
     private final AddressService addressService;
     private final ShippingFeeEstimator shippingFeeEstimator;
+    private final VoucherService voucherService;
 
     @Override
     public CheckoutPreviewResponse preview(UUID buyerId, CheckoutPreviewRequest request) {
@@ -132,15 +134,29 @@ public class CheckoutPreviewServiceImpl implements CheckoutPreviewService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         boolean allValid = resolved.stream().allMatch(r -> r.reason() == null);
 
+        BigDecimal grandTotal = totalSubtotal.add(totalFee);
+        BigDecimal discountAmount = null;
+        String voucherError = null;
+        if (request.voucherCode() != null && !request.voucherCode().isBlank()) {
+            try {
+                discountAmount = voucherService.validateVoucher(request.voucherCode(), totalSubtotal).discountAmount();
+                grandTotal = grandTotal.subtract(discountAmount);
+            } catch (AppException e) {
+                voucherError = e.getMessage();
+            }
+        }
+
         return CheckoutPreviewResponse.builder()
                 .shops(shopGroups)
                 .invalidItems(invalidItems)
                 .totalItemsSubtotal(totalSubtotal)
                 .totalShippingFee(totalFee)
-                .grandTotal(totalSubtotal.add(totalFee))
+                .grandTotal(grandTotal)
                 .allItemsValid(allValid)
                 .addressId(address != null ? address.id() : null)
                 .cartVersion(snapshot.version())
+                .discountAmount(discountAmount)
+                .voucherError(voucherError)
                 .build();
     }
 

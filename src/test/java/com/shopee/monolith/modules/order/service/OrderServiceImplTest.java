@@ -118,14 +118,14 @@ class OrderServiceImplTest {
                 .expiresAt(Instant.now())
                 .build();
 
-        when(checkoutProcessor.processCheckout(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        when(checkoutProcessor.processCheckout(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(expectedResponse);
 
         CheckoutResponse response = orderService.checkout(buyerId, request, idempotencyKey);
 
         assertNotNull(response);
         assertEquals(expectedResponse.checkoutSessionId(), response.checkoutSessionId());
-        verify(checkoutProcessor).processCheckout(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(checkoutProcessor).processCheckout(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -149,7 +149,7 @@ class OrderServiceImplTest {
         );
 
         assertEquals(ErrorCode.IDEMPOTENCY_KEY_CONFLICT, exception.getErrorCode());
-        verify(checkoutProcessor, never()).processCheckout(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(checkoutProcessor, never()).processCheckout(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -180,6 +180,6 @@ class OrderServiceImplTest {
         CheckoutResponse response = orderService.checkout(buyerId, request, idempotencyKey);
 
         assertEquals(cachedResponse, response);
-        verify(checkoutProcessor, never()).processCheckout(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(checkoutProcessor, never()).processCheckout(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 }

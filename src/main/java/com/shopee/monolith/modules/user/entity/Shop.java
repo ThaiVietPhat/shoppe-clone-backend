@@ -1,8 +1,11 @@
 package com.shopee.monolith.modules.user.entity;
 
 import com.shopee.monolith.common.entity.BaseEntity;
+import com.shopee.monolith.modules.user.model.ShopStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -37,8 +40,29 @@ public class Shop extends BaseEntity {
     @lombok.Builder.Default
     private BigDecimal rating = BigDecimal.ZERO;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    @lombok.Builder.Default
+    private ShopStatus status = ShopStatus.ACTIVE;
+
+    @Column(name = "verified", nullable = false)
+    @lombok.Builder.Default
+    private boolean verified = false;
+
     public void update(String name, String description) {
         this.name = name;
         this.description = description;
+    }
+
+    public void suspend() {
+        this.status = ShopStatus.SUSPENDED;
+    }
+
+    public void reinstate() {
+        this.status = ShopStatus.ACTIVE;
+    }
+
+    public void verify() {
+        this.verified = true;
     }
 }

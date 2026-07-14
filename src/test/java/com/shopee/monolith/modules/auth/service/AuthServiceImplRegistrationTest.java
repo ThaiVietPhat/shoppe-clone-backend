@@ -12,6 +12,7 @@ import com.shopee.monolith.modules.user.dto.command.RegisterUserCommand;
 import com.shopee.monolith.modules.user.dto.response.UserResponse;
 import com.shopee.monolith.modules.user.event.UserRegisteredEvent;
 import com.shopee.monolith.modules.user.model.Role;
+import com.shopee.monolith.modules.user.service.PasswordResetService;
 import com.shopee.monolith.modules.user.service.UserService;
 import com.shopee.monolith.modules.user.service.UserVerificationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,6 +50,12 @@ class AuthServiceImplRegistrationTest {
     private UserVerificationService userVerificationService;
 
     @Mock
+    private PasswordResetService passwordResetService;
+
+    @Mock
+    private SessionRevocationService sessionRevocationService;
+
+    @Mock
     private VerificationTokenGenerator verificationTokenGenerator;
 
     @Mock
@@ -76,8 +83,10 @@ class AuthServiceImplRegistrationTest {
         authService = new AuthServiceImpl(
                 userService,
                 userVerificationService,
+                passwordResetService,
                 passwordEncoder,
                 refreshTokenService,
+                sessionRevocationService,
                 verificationTokenGenerator,
                 eventPayloadCryptoService,
                 eventPublisher,

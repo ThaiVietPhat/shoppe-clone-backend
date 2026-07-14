@@ -43,6 +43,10 @@ public class CheckoutSession extends BaseEntity {
     @lombok.Builder.Default
     private BigDecimal shippingFee = BigDecimal.ZERO;
 
+    @Column(name = "discount_amount", nullable = false, precision = 15, scale = 2)
+    @lombok.Builder.Default
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
     @Column(name = "shipping_recipient_name", nullable = false)
     private String shippingRecipientName;
 
@@ -97,5 +101,13 @@ public class CheckoutSession extends BaseEntity {
         this.itemsSubtotal = subtotal;
         this.shippingFee = fee;
         this.totalAmount = subtotal.add(fee);
+    }
+
+    /**
+     * Applies a checkout-level voucher discount on top of already-set item/shipping totals.
+     */
+    public void applyDiscount(BigDecimal discount) {
+        this.discountAmount = discount;
+        this.totalAmount = this.totalAmount.subtract(discount);
     }
 }

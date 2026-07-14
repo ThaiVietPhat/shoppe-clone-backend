@@ -88,6 +88,8 @@ public class SecurityConfig {
                                 "/api/auth/csrf",
                                 "/api/auth/register",
                                 "/api/auth/verify",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password",
                                 "/api/auth/oauth2/exchange",
                                 "/v3/api-docs/**",
                                 "/v3/api-docs.yaml",
@@ -119,6 +121,7 @@ public class SecurityConfig {
                                 "/actuator/health/readiness"
                         ).permitAll()
                         .requestMatchers("/actuator/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(exceptions -> exceptions

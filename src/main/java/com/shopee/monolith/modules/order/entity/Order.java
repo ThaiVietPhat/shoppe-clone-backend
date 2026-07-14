@@ -53,6 +53,10 @@ public class Order extends BaseEntity {
     @lombok.Builder.Default
     private BigDecimal shippingFee = BigDecimal.ZERO;
 
+    @Column(name = "discount_amount", nullable = false, precision = 15, scale = 2)
+    @lombok.Builder.Default
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
     @Column(name = "shipping_recipient_name", nullable = false)
     private String shippingRecipientName;
 
@@ -99,6 +103,15 @@ public class Order extends BaseEntity {
 
     public void cancel() {
         this.status = OrderStatus.CANCELLED;
+    }
+
+    /**
+     * Applies this order's share of a checkout-level voucher discount, reducing totalAmount.
+     * Called once at checkout creation — never re-applied after that.
+     */
+    public void applyDiscount(BigDecimal orderDiscountShare) {
+        this.discountAmount = orderDiscountShare;
+        this.totalAmount = this.totalAmount.subtract(orderDiscountShare);
     }
 
     public void markPaid(String method) {

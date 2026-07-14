@@ -31,16 +31,23 @@ public enum ErrorCode {
     VERIFICATION_TOKEN_EXPIRED(400, "Verification token has expired"),
     VERIFICATION_TOKEN_REUSED(400, "Verification token has already been used"),
     OAUTH_IDENTITY_ALREADY_LINKED(409, "OAuth identity is already linked to another user"),
+    PASSWORD_RESET_TOKEN_NOT_FOUND(400, "Password reset token is invalid"),
+    PASSWORD_RESET_TOKEN_EXPIRED(400, "Password reset token has expired"),
+    PASSWORD_RESET_TOKEN_ALREADY_USED(400, "Password reset token has already been used"),
 
     // ==================== User ====================
     USER_NOT_FOUND(404, "User not found"),
     EMAIL_ALREADY_EXISTS(409, "Email is already registered"),
     ADDRESS_NOT_FOUND(404, "Address not found"),
+    USER_ALREADY_BANNED(409, "User is already banned"),
+    USER_ALREADY_ACTIVE(409, "User is already active"),
 
     // ==================== Shop ====================
     SHOP_NOT_FOUND(404, "Shop not found"),
     SHOP_ALREADY_EXISTS(409, "User already owns a shop"),
     SHOP_OWNER_REQUIRED(403, "Only the shop owner can perform this action"),
+    SHOP_ALREADY_SUSPENDED(409, "Shop is already suspended"),
+    SHOP_ALREADY_ACTIVE(409, "Shop is already active"),
 
     // ==================== Product ====================
     PRODUCT_NOT_FOUND(404, "Product not found"),
@@ -76,6 +83,10 @@ public enum ErrorCode {
     VOUCHER_NOT_FOUND(404, "Voucher not found"),
     VOUCHER_EXPIRED(409, "Voucher has expired"),
     VOUCHER_USAGE_LIMIT_REACHED(409, "Voucher usage limit has been reached"),
+    VOUCHER_NOT_ACTIVE(409, "Voucher is not active"),
+    VOUCHER_MIN_ORDER_NOT_MET(409, "Order does not meet the voucher's minimum order amount"),
+    VOUCHER_CODE_ALREADY_EXISTS(409, "Voucher code already exists"),
+    VOUCHER_INVALID_DATE_RANGE(400, "Voucher expiry date must be after the start date"),
 
     // ==================== Cart ====================
     CART_EMPTY(400, "Cart is empty"),
@@ -98,7 +109,11 @@ public enum ErrorCode {
     INVALID_FILE_TYPE(400, "File type is not allowed"),
     FILE_TOO_LARGE(400, "File size exceeds the maximum allowed limit"),
     MEDIA_NOT_FOUND(404, "Media asset not found"),
-    MEDIA_OWNERSHIP_VIOLATION(403, "Media asset does not belong to this shop");
+    MEDIA_OWNERSHIP_VIOLATION(403, "Media asset does not belong to this shop"),
+
+    // ==================== Moderation ====================
+    REPORT_NOT_FOUND(404, "Report not found"),
+    REPORT_ALREADY_RESOLVED(409, "Report has already been resolved");
 
     private final int httpStatus;
     private final String message;

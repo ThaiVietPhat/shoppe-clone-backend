@@ -45,6 +45,18 @@ public class User extends BaseEntity {
         this.status = UserStatus.ACTIVE;
     }
 
+    public void updatePassword(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
+    public void lock() {
+        this.status = UserStatus.LOCKED;
+    }
+
+    public void unlock() {
+        this.status = UserStatus.ACTIVE;
+    }
+
     public void promoteToSeller() {
         if (this.role == Role.BUYER) {
             this.role = Role.SELLER;

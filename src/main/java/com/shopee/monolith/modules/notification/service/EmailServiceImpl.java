@@ -40,4 +40,29 @@ public class EmailServiceImpl implements EmailService {
             throw new IllegalStateException("Email delivery failed", e);
         }
     }
+
+    @Override
+    public void sendPasswordResetEmail(String to, String resetLink) {
+        log.info("Sending password reset email to recipient");
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(properties.getSender());
+            helper.setTo(to);
+            helper.setSubject("Reset your password");
+
+            String escapedLink = HtmlUtils.htmlEscape(resetLink);
+            String htmlContent = "<p>We received a request to reset your password. Click the link below to choose a new password:</p>"
+                    + "<a href=\"" + escapedLink + "\">Reset Password</a>"
+                    + "<p>If you did not request this, you can safely ignore this email.</p>";
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.info("Password reset email sent successfully");
+        } catch (Exception e) {
+            log.error("Failed to send password reset email");
+            throw new IllegalStateException("Email delivery failed", e);
+        }
+    }
 }

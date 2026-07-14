@@ -7,14 +7,19 @@ import com.shopee.monolith.modules.auth.dto.internal.IssuedTokenPair;
 import com.shopee.monolith.modules.auth.dto.request.LoginRequest;
 import com.shopee.monolith.modules.auth.dto.request.RegisterRequest;
 import com.shopee.monolith.common.security.EventPayloadCryptoService;
+import com.shopee.monolith.modules.auth.dto.request.ForgotPasswordRequest;
+import com.shopee.monolith.modules.auth.dto.request.ResetPasswordRequest;
 import com.shopee.monolith.modules.auth.dto.request.VerifyRequest;
 import com.shopee.monolith.modules.auth.security.VerificationTokenGenerator;
+import com.shopee.monolith.modules.user.dto.command.CreatePasswordResetTokenCommand;
 import com.shopee.monolith.modules.user.dto.command.CreateVerificationTokenCommand;
 import com.shopee.monolith.modules.user.dto.command.RegisterUserCommand;
 import com.shopee.monolith.modules.user.dto.internal.UserAuthenticationData;
 import com.shopee.monolith.modules.user.dto.response.UserResponse;
+import com.shopee.monolith.modules.user.event.PasswordResetRequestedEvent;
 import com.shopee.monolith.modules.user.event.UserRegisteredEvent;
 import com.shopee.monolith.modules.user.model.UserStatus;
+import com.shopee.monolith.modules.user.service.PasswordResetService;
 import com.shopee.monolith.modules.user.service.UserService;
 import com.shopee.monolith.modules.user.service.UserVerificationService;
 import lombok.RequiredArgsConstructor;
@@ -35,8 +40,10 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserService userService;
     private final UserVerificationService userVerificationService;
+    private final PasswordResetService passwordResetService;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenService refreshTokenService;
+    private final SessionRevocationService sessionRevocationService;
     private final VerificationTokenGenerator verificationTokenGenerator;
     private final EventPayloadCryptoService eventPayloadCryptoService;
     private final ApplicationEventPublisher eventPublisher;
@@ -143,5 +150,42 @@ public class AuthServiceImpl implements AuthService {
         validateUserStatus(userAuthData.status());
 
         return refreshTokenService.issueTokenPair(userId, userAuthData.role());
+    }
+
+    @Override
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        // Always succeeds from the caller's perspective regardless of whether the email
+        // exists — only the found-user branch does any work, preventing enumeration.
+        userService.findAuthenticationDataByEmail(request.email()).ifPresent(userAuthData -> {
+            if (userAuthData.status() == UserStatus.LOCKED) {
+                return;
+            }
+
+            String rawToken = verificationTokenGenerator.generate();
+            String tokenHash = verificationTokenGenerator.hash(rawToken);
+            Instant expiresAt = Instant.now(clock).plus(securityProperties.getPasswordResetToken().getTtl());
+
+            passwordResetService.createPasswordResetToken(new CreatePasswordResetTokenCommand(
+                    userAuthData.id(),
+                    tokenHash,
+                    expiresAt
+            ));
+
+            String encryptedToken = eventPayloadCryptoService.encrypt(rawToken);
+            eventPublisher.publishEvent(new PasswordResetRequestedEvent(userAuthData.id(), request.email(), encryptedToken));
+        });
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        Instant now = Instant.now(clock);
+        String tokenHash = verificationTokenGenerator.hash(request.token());
+        String newPasswordHash = passwordEncoder.encode(request.newPassword());
+
+        UUID userId = passwordResetService.resetPassword(tokenHash, newPasswordHash, now);
+
+        sessionRevocationService.logoutAll(userId);
     }
 }

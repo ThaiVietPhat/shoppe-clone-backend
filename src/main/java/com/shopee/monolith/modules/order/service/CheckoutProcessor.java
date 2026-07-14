@@ -25,6 +25,7 @@ import com.shopee.monolith.modules.product.dto.internal.ProductLookupData;
 import com.shopee.monolith.modules.product.dto.internal.VariantLookupData;
 import com.shopee.monolith.modules.product.service.ProductService;
 import com.shopee.monolith.modules.user.dto.response.AddressResponse;
+import com.shopee.monolith.modules.voucher.service.VoucherService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -33,6 +34,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -55,11 +57,12 @@ public class CheckoutProcessor {
     private final ProductService productService;
     private final ShippingFeeEstimator shippingFeeEstimator;
     private final ObjectMapper objectMapper;
+    private final VoucherService voucherService;
 
     @Transactional
     public CheckoutResponse processCheckout(UUID buyerId, AddressResponse address, String idempotencyKey,
                                             String requestHash, String requestBodyHash, UUID keyId, Instant expiresAt,
-                                            List<CartSnapshotItem> cartItems,
+                                            List<CartSnapshotItem> cartItems, String voucherCode,
                                             Runnable postCommitAction) {
 
         int inserted = idempotencyKeyRepository.tryInsert(
@@ -208,6 +211,15 @@ public class CheckoutProcessor {
         }
 
         session.updateTotals(sessionItemsSubtotal, sessionShippingFee);
+
+        BigDecimal discountAmount = null;
+        if (voucherCode != null && !voucherCode.isBlank()) {
+            discountAmount = voucherService.reserveVoucher(voucherCode, session.getId(), buyerId, sessionItemsSubtotal);
+            session.applyDiscount(discountAmount);
+            totalAmount = totalAmount.subtract(discountAmount);
+            distributeDiscountAcrossOrders(orderCreationInfos, discountAmount, sessionItemsSubtotal);
+        }
+
         checkoutSessionRepository.save(session);
 
         // Reserve inventory (this internally does SELECT FOR UPDATE on inventories table)
@@ -237,6 +249,7 @@ public class CheckoutProcessor {
                 .shippingFee(sessionShippingFee)
                 .totalAmount(totalAmount)
                 .expiresAt(session.getExpiresAt())
+                .discountAmount(discountAmount)
                 .build();
 
         // Save Response and complete IdempotencyKey
@@ -263,6 +276,32 @@ public class CheckoutProcessor {
         }
 
         return response;
+    }
+
+    /**
+     * Splits a single checkout-level voucher discount across the per-shop orders proportionally
+     * to each order's items subtotal. The last order absorbs the rounding remainder so the sum of
+     * per-order discounts always equals the total discount exactly.
+     */
+    private void distributeDiscountAcrossOrders(List<OrderCreationInfo> orderInfos, BigDecimal totalDiscount,
+                                                 BigDecimal totalSubtotal) {
+        if (totalSubtotal.compareTo(BigDecimal.ZERO) == 0) {
+            return;
+        }
+        BigDecimal allocated = BigDecimal.ZERO;
+        for (int i = 0; i < orderInfos.size(); i++) {
+            Order order = orderInfos.get(i).order();
+            BigDecimal share;
+            if (i == orderInfos.size() - 1) {
+                share = totalDiscount.subtract(allocated);
+            } else {
+                share = totalDiscount.multiply(order.getItemsSubtotal())
+                        .divide(totalSubtotal, 2, RoundingMode.HALF_UP);
+                allocated = allocated.add(share);
+            }
+            order.applyDiscount(share);
+        }
+        orderRepository.saveAll(orderInfos.stream().map(OrderCreationInfo::order).toList());
     }
 
     private boolean requestBodyMatches(IdempotencyKey key, String requestBodyHash) {

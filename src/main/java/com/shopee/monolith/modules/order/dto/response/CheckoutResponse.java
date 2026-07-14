@@ -26,9 +26,12 @@ public record CheckoutResponse(
         @Schema(description = "Sum of all shipping fees", example = "30.00")
         BigDecimal shippingFee,
 
-        @Schema(description = "Total checkout amount (itemsSubtotal + shippingFee)", example = "80.00")
+        @Schema(description = "Total checkout amount (itemsSubtotal + shippingFee - discountAmount)", example = "80.00")
         BigDecimal totalAmount,
 
         @Schema(description = "Expiration timestamp of the reservation", example = "2026-06-05T18:30:00Z")
-        Instant expiresAt
+        Instant expiresAt,
+
+        @Schema(description = "Discount amount applied from the voucher code, if any", example = "10.00", nullable = true)
+        BigDecimal discountAmount
 ) {}
