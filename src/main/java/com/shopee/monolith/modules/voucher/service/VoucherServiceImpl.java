@@ -132,7 +132,7 @@ public class VoucherServiceImpl implements VoucherService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, noRollbackFor = AppException.class)
     public ValidateVoucherResponse validateVoucher(String code, BigDecimal orderSubtotal) {
         Voucher voucher = voucherRepository.findByCode(normalizeCode(code))
                 .orElseThrow(() -> new AppException(ErrorCode.VOUCHER_NOT_FOUND));

@@ -264,4 +264,30 @@ class OrderControllerIT extends BasePostgresRedisIntegrationTest {
                 .andExpect(jsonPath("$.code").value(409))
                 .andExpect(jsonPath("$.message").value(ErrorCode.IDEMPOTENCY_KEY_CONFLICT.getMessage()));
     }
+
+    @Test
+    void previewCheckoutWhenVoucherCodeInvalidShouldSucceedWithVoucherError() throws Exception {
+        // Reproduces a transaction-rollback-only bug: CheckoutPreviewServiceImpl catches the
+        // AppException thrown by VoucherService.validateVoucher (a nested @Transactional call
+        // sharing the same physical transaction) and continues, but the nested proxy still
+        // marked the transaction rollback-only, so the outer commit blew up with
+        // UnexpectedRollbackException instead of returning the documented voucherError response.
+        cartService.addItem(buyer.getId(), new AddCartItemRequest(variant.getId(), 2));
+        cartService.selectItems(buyer.getId(), List.of(variant.getId()));
+
+        com.shopee.monolith.modules.order.dto.request.CheckoutPreviewRequest request =
+                com.shopee.monolith.modules.order.dto.request.CheckoutPreviewRequest.builder()
+                        .addressId(defaultAddress.getId())
+                        .voucherCode("DOES-NOT-EXIST")
+                        .build();
+
+        mockMvc.perform(post("/api/orders/preview")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + buyerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.voucherError").value(ErrorCode.VOUCHER_NOT_FOUND.getMessage()))
+                .andExpect(jsonPath("$.data.grandTotal").exists());
+    }
 }
