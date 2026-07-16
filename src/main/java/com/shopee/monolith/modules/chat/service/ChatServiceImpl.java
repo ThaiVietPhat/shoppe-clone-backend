@@ -12,6 +12,7 @@ import com.shopee.monolith.modules.chat.repository.ChatMessageRepository;
 import com.shopee.monolith.modules.chat.repository.ChatRoomRepository;
 import com.shopee.monolith.modules.user.dto.internal.ShopLookupData;
 import com.shopee.monolith.modules.user.service.ShopService;
+import com.shopee.monolith.modules.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -40,6 +41,7 @@ public class ChatServiceImpl implements ChatService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ShopService shopService;
+    private final UserService userService;
     private final ChatMapper chatMapper;
     private final SimpMessagingTemplate messagingTemplate;
     private final Clock clock;
@@ -55,7 +57,8 @@ public class ChatServiceImpl implements ChatService {
 
         ChatRoom room = chatRoomRepository.findByBuyerIdAndShopId(buyerId, shopId)
                 .orElseGet(() -> createRoom(buyerId, shopId));
-        return buildRoomResponse(room, buyerId, shop.name());
+        String buyerEmail = userService.findEmailsByIds(List.of(buyerId)).get(buyerId);
+        return buildRoomResponse(room, buyerId, shop.name(), buyerEmail);
     }
 
     private ChatRoom createRoom(UUID buyerId, UUID shopId) {
@@ -80,12 +83,15 @@ public class ChatServiceImpl implements ChatService {
 
         Map<UUID, ShopLookupData> shops = shopService.findShopLookupDataByIds(
                 rooms.stream().map(ChatRoom::getShopId).distinct().toList());
+        Map<UUID, String> buyerEmails = userService.findEmailsByIds(
+                rooms.stream().map(ChatRoom::getBuyerId).distinct().toList());
 
         // De-dup defensively (owner chatting with own shop is rejected at open time)
         Map<UUID, ChatRoomResponse> byId = new LinkedHashMap<>();
         for (ChatRoom room : rooms) {
             ShopLookupData shop = shops.get(room.getShopId());
-            byId.putIfAbsent(room.getId(), buildRoomResponse(room, userId, shop != null ? shop.name() : null));
+            byId.putIfAbsent(room.getId(), buildRoomResponse(room, userId,
+                    shop != null ? shop.name() : null, buyerEmails.get(room.getBuyerId())));
         }
         return List.copyOf(byId.values());
     }
@@ -125,10 +131,11 @@ public class ChatServiceImpl implements ChatService {
         room = chatRoomRepository.save(room);
         String shopName = shopService.findShopLookupDataById(room.getShopId())
                 .map(ShopLookupData::name).orElse(null);
-        return buildRoomResponse(room, userId, shopName);
+        String buyerEmail = userService.findEmailsByIds(List.of(room.getBuyerId())).get(room.getBuyerId());
+        return buildRoomResponse(room, userId, shopName, buyerEmail);
     }
 
-    private ChatRoomResponse buildRoomResponse(ChatRoom room, UUID viewerId, String shopName) {
+    private ChatRoomResponse buildRoomResponse(ChatRoom room, UUID viewerId, String shopName, String buyerEmail) {
         Instant myLastReadAt = room.getBuyerId().equals(viewerId)
                 ? room.getBuyerLastReadAt()
                 : room.getSellerLastReadAt();
@@ -139,6 +146,7 @@ public class ChatServiceImpl implements ChatService {
         return chatMapper.toRoomResponse(
                 room,
                 shopName,
+                buyerEmail,
                 lastMessage != null ? lastMessage.getContent() : null,
                 lastMessage != null ? lastMessage.getSenderId() : null,
                 lastMessage != null ? lastMessage.getCreatedAt() : null,

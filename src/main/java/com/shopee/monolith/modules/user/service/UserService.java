@@ -4,14 +4,19 @@ import com.shopee.monolith.modules.user.dto.command.RegisterUserCommand;
 import com.shopee.monolith.modules.user.dto.internal.UserAuthenticationData;
 import com.shopee.monolith.modules.user.dto.response.UserResponse;
 
+import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface UserService {
-    
+
     UserResponse getUserById(UUID id);
-    
+
     UserResponse getUserByEmail(String email);
+
+    /** Batch email lookup for display purposes (e.g. chat room list); missing IDs are omitted. */
+    Map<UUID, String> findEmailsByIds(Collection<UUID> ids);
 
     Optional<UserAuthenticationData> findAuthenticationDataByEmail(String email);
 

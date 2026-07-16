@@ -11,6 +11,7 @@ import com.shopee.monolith.modules.chat.repository.ChatMessageRepository;
 import com.shopee.monolith.modules.chat.repository.ChatRoomRepository;
 import com.shopee.monolith.modules.user.dto.internal.ShopLookupData;
 import com.shopee.monolith.modules.user.service.ShopService;
+import com.shopee.monolith.modules.user.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,6 +23,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -45,6 +47,8 @@ class ChatServiceImplTest {
     @Mock
     private ShopService shopService;
     @Mock
+    private UserService userService;
+    @Mock
     private ChatMapper chatMapper;
     @Mock
     private SimpMessagingTemplate messagingTemplate;
@@ -59,7 +63,7 @@ class ChatServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        chatService = new ChatServiceImpl(chatRoomRepository, chatMessageRepository, shopService,
+        chatService = new ChatServiceImpl(chatRoomRepository, chatMessageRepository, shopService, userService,
                 chatMapper, messagingTemplate, Clock.fixed(NOW, ZoneOffset.UTC));
         buyerId = UUID.randomUUID();
         shopId = UUID.randomUUID();
@@ -96,7 +100,8 @@ class ChatServiceImplTest {
     void openRoomWhenRoomExistsShouldReuseIt() {
         when(shopService.findShopLookupDataById(shopId)).thenReturn(Optional.of(shop()));
         when(chatRoomRepository.findByBuyerIdAndShopId(buyerId, shopId)).thenReturn(Optional.of(room));
-        when(chatMapper.toRoomResponse(room, "Demo Shop", null, null, null, 0L)).thenReturn(mock(ChatRoomResponse.class));
+        when(userService.findEmailsByIds(java.util.List.of(buyerId))).thenReturn(Map.of());
+        when(chatMapper.toRoomResponse(room, "Demo Shop", null, null, null, null, 0L)).thenReturn(mock(ChatRoomResponse.class));
 
         chatService.openRoom(buyerId, shopId);
 
@@ -111,11 +116,12 @@ class ChatServiceImplTest {
                 .thenReturn(Optional.of(room));
         when(chatRoomRepository.saveAndFlush(any(ChatRoom.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
-        when(chatMapper.toRoomResponse(room, "Demo Shop", null, null, null, 0L)).thenReturn(mock(ChatRoomResponse.class));
+        when(userService.findEmailsByIds(java.util.List.of(buyerId))).thenReturn(Map.of());
+        when(chatMapper.toRoomResponse(room, "Demo Shop", null, null, null, null, 0L)).thenReturn(mock(ChatRoomResponse.class));
 
         chatService.openRoom(buyerId, shopId);
 
-        verify(chatMapper).toRoomResponse(room, "Demo Shop", null, null, null, 0L);
+        verify(chatMapper).toRoomResponse(room, "Demo Shop", null, null, null, null, 0L);
     }
 
     @Test
@@ -161,7 +167,8 @@ class ChatServiceImplTest {
         when(chatRoomRepository.findById(roomId)).thenReturn(Optional.of(room));
         when(chatRoomRepository.save(room)).thenReturn(room);
         when(shopService.findShopLookupDataById(shopId)).thenReturn(Optional.of(shop()));
-        when(chatMapper.toRoomResponse(room, "Demo Shop", null, null, null, 0L)).thenReturn(mock(ChatRoomResponse.class));
+        when(userService.findEmailsByIds(java.util.List.of(buyerId))).thenReturn(Map.of());
+        when(chatMapper.toRoomResponse(room, "Demo Shop", null, null, null, null, 0L)).thenReturn(mock(ChatRoomResponse.class));
 
         chatService.markRead(buyerId, roomId);
 
@@ -174,7 +181,8 @@ class ChatServiceImplTest {
         when(chatRoomRepository.findById(roomId)).thenReturn(Optional.of(room));
         when(chatRoomRepository.save(room)).thenReturn(room);
         when(shopService.findShopLookupDataById(shopId)).thenReturn(Optional.of(shop()));
-        when(chatMapper.toRoomResponse(room, "Demo Shop", null, null, null, 0L)).thenReturn(mock(ChatRoomResponse.class));
+        when(userService.findEmailsByIds(java.util.List.of(buyerId))).thenReturn(Map.of());
+        when(chatMapper.toRoomResponse(room, "Demo Shop", null, null, null, null, 0L)).thenReturn(mock(ChatRoomResponse.class));
 
         chatService.markRead(ownerId, roomId);
 

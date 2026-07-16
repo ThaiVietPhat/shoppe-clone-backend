@@ -14,9 +14,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +35,15 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
         return userMapper.toResponse(user);
+    }
+
+    @Override
+    public Map<UUID, String> findEmailsByIds(Collection<UUID> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        return userRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(User::getId, User::getEmail));
     }
 
     @Override

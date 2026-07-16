@@ -15,6 +15,10 @@ public record ChatRoomResponse(
         @Schema(description = "Buyer participant user ID")
         UUID buyerId,
 
+        @Schema(description = "Buyer display identifier (email) — the seller side has no other way "
+                + "to tell rooms apart, since every room's shopName is their own shop's name")
+        String buyerEmail,
+
         @Schema(description = "Shop participant ID")
         UUID shopId,
 

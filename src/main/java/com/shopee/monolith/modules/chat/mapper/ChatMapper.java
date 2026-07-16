@@ -16,7 +16,7 @@ public interface ChatMapper {
     @Mapping(target = "lastMessageSenderId", source = "lastMessageSenderId")
     @Mapping(target = "lastMessageAt", source = "lastMessageAt")
     @Mapping(target = "unreadCount", source = "unreadCount")
-    ChatRoomResponse toRoomResponse(ChatRoom room, String shopName, String lastMessageContent,
+    ChatRoomResponse toRoomResponse(ChatRoom room, String shopName, String buyerEmail, String lastMessageContent,
                                      java.util.UUID lastMessageSenderId, java.time.Instant lastMessageAt,
                                      long unreadCount);
 
