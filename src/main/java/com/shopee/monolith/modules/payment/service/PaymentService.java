@@ -13,7 +13,7 @@ public interface PaymentService {
      * method returns the existing attempt. COD attempts settle inventory and orders
      * in the same transaction.
      */
-    PaymentStatusResponse initiatePayment(UUID buyerId, InitiatePaymentRequest request);
+    PaymentStatusResponse initiatePayment(UUID buyerId, InitiatePaymentRequest request, String clientIp);
 
-    PaymentStatusResponse getPaymentStatus(UUID checkoutSessionId, UUID buyerId);
+    PaymentStatusResponse getPaymentStatus(UUID checkoutSessionId, UUID buyerId, String clientIp);
 }

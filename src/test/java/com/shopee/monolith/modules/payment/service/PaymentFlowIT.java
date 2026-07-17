@@ -71,6 +71,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @TestPropertySource(properties = "app.checkout.mock-shipping.flat-fee-per-shop=0")
 class PaymentFlowIT extends BasePostgresRedisIntegrationTest {
 
+    private static final String TEST_CLIENT_IP = "127.0.0.1";
+
     @Autowired
     private OrderService orderService;
     @Autowired
@@ -226,7 +228,7 @@ class PaymentFlowIT extends BasePostgresRedisIntegrationTest {
         CheckoutResponse checkout = checkout(2);
 
         PaymentStatusResponse response = paymentService.initiatePayment(buyer.getId(),
-                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.COD));
+                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.COD), TEST_CLIENT_IP);
 
         assertEquals(PaymentAttemptStatus.PENDING_COD.name(), response.status());
 
@@ -252,7 +254,7 @@ class PaymentFlowIT extends BasePostgresRedisIntegrationTest {
     void vnpayWebhookSuccessShouldConfirmAndDuplicateWebhookShouldNoOp() {
         CheckoutResponse checkout = checkout(2);
         PaymentStatusResponse initiated = paymentService.initiatePayment(buyer.getId(),
-                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.VNPAY));
+                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.VNPAY), TEST_CLIENT_IP);
         assertEquals(PaymentAttemptStatus.PENDING.name(), initiated.status());
         assertNotNull(initiated.nextAction());
 
@@ -282,7 +284,7 @@ class PaymentFlowIT extends BasePostgresRedisIntegrationTest {
     void vnpayWebhookWhenAmountMismatchShouldRequireReconciliationWithoutConfirming() {
         CheckoutResponse checkout = checkout(2);
         paymentService.initiatePayment(buyer.getId(),
-                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.VNPAY));
+                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.VNPAY), TEST_CLIENT_IP);
         PaymentAttempt attempt = latestAttempt(checkout.checkoutSessionId());
 
         Map<String, String> params = new HashMap<>();
@@ -307,7 +309,7 @@ class PaymentFlowIT extends BasePostgresRedisIntegrationTest {
     void vnpayWebhookWhenFailureCodeShouldReleaseInventoryAndCancelOrders() {
         CheckoutResponse checkout = checkout(2);
         paymentService.initiatePayment(buyer.getId(),
-                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.VNPAY));
+                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.VNPAY), TEST_CLIENT_IP);
         PaymentAttempt attempt = latestAttempt(checkout.checkoutSessionId());
 
         webhookService.processWebhook(signedWebhookParams(attempt, "24"));
@@ -328,15 +330,16 @@ class PaymentFlowIT extends BasePostgresRedisIntegrationTest {
     void duplicatePaymentInitiateWhenNonTerminalAttemptExistsShouldReturnSameAttempt() {
         CheckoutResponse checkout = checkout(1);
         PaymentStatusResponse first = paymentService.initiatePayment(buyer.getId(),
-                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.VNPAY));
+                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.VNPAY), TEST_CLIENT_IP);
         PaymentStatusResponse second = paymentService.initiatePayment(buyer.getId(),
-                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.VNPAY));
+                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.VNPAY), TEST_CLIENT_IP);
 
         assertEquals(first.paymentAttemptId(), second.paymentAttemptId());
         assertEquals(1, paymentAttemptRepository.findAll().size());
 
         AppException exception = assertThrows(AppException.class, () -> paymentService.initiatePayment(
-                buyer.getId(), new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.COD)));
+                buyer.getId(), new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.COD),
+                TEST_CLIENT_IP));
         assertEquals(ErrorCode.PAYMENT_ATTEMPT_IN_PROGRESS, exception.getErrorCode());
     }
 
@@ -344,7 +347,7 @@ class PaymentFlowIT extends BasePostgresRedisIntegrationTest {
     void paymentTimeoutShouldExpireAttemptAndReleaseInventory() {
         CheckoutResponse checkout = checkout(2);
         paymentService.initiatePayment(buyer.getId(),
-                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.VNPAY));
+                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.VNPAY), TEST_CLIENT_IP);
         PaymentAttempt attempt = latestAttempt(checkout.checkoutSessionId());
 
         forceAttemptExpiry(attempt.getId());
@@ -364,7 +367,7 @@ class PaymentFlowIT extends BasePostgresRedisIntegrationTest {
     void timeoutVsSuccessRaceOnlyOneTransitionShouldWinAndInventoryStaysConsistent() throws Exception {
         CheckoutResponse checkout = checkout(2);
         paymentService.initiatePayment(buyer.getId(),
-                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.VNPAY));
+                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.VNPAY), TEST_CLIENT_IP);
         PaymentAttempt attempt = latestAttempt(checkout.checkoutSessionId());
         forceAttemptExpiry(attempt.getId());
 
@@ -417,7 +420,7 @@ class PaymentFlowIT extends BasePostgresRedisIntegrationTest {
     void cancelledOrderShouldNotBeRevivedByLaterVNPaySuccessWebhook() {
         CheckoutResponse checkout = checkout(2);
         paymentService.initiatePayment(buyer.getId(),
-                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.VNPAY));
+                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.VNPAY), TEST_CLIENT_IP);
         PaymentAttempt attempt = latestAttempt(checkout.checkoutSessionId());
 
         // Buyer cancels order before payment completes
@@ -452,7 +455,7 @@ class PaymentFlowIT extends BasePostgresRedisIntegrationTest {
     void lateVNPaySuccessAfterTimeoutShouldFlagReconciliationWithoutInventoryChange() {
         CheckoutResponse checkout = checkout(2);
         paymentService.initiatePayment(buyer.getId(),
-                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.VNPAY));
+                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.VNPAY), TEST_CLIENT_IP);
         PaymentAttempt attempt = latestAttempt(checkout.checkoutSessionId());
 
         // Force timeout and process it
@@ -485,7 +488,7 @@ class PaymentFlowIT extends BasePostgresRedisIntegrationTest {
     void checkoutTimeoutShouldExpirePendingPaymentAttemptSoGetStatusNoLongerReturnsPendingUrl() {
         CheckoutResponse checkout = checkout(2);
         paymentService.initiatePayment(buyer.getId(),
-                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.VNPAY));
+                new InitiatePaymentRequest(checkout.checkoutSessionId(), PaymentMethod.VNPAY), TEST_CLIENT_IP);
         PaymentAttempt attempt = latestAttempt(checkout.checkoutSessionId());
         assertEquals(PaymentAttemptStatus.PENDING, attempt.getStatus());
         assertNotNull(attempt.getExpiresAt());

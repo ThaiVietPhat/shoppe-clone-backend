@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -55,6 +56,7 @@ class PaymentServiceImplTest {
     private final UUID buyerId = UUID.randomUUID();
     private final UUID sessionId = UUID.randomUUID();
     private final UUID orderId = UUID.randomUUID();
+    private static final String CLIENT_IP = "127.0.0.1";
 
     private CheckoutSessionPaymentInfo pendingSession;
 
@@ -92,7 +94,7 @@ class PaymentServiceImplTest {
         when(checkoutSettlementService.confirmCheckoutSession(sessionId, "COD")).thenReturn(true);
 
         PaymentStatusResponse response = paymentService.initiatePayment(
-                buyerId, new InitiatePaymentRequest(sessionId, PaymentMethod.COD));
+                buyerId, new InitiatePaymentRequest(sessionId, PaymentMethod.COD), CLIENT_IP);
 
         assertEquals(PaymentAttemptStatus.PENDING_COD.name(), response.status());
         assertEquals(List.of(orderId), response.orderIds());
@@ -110,7 +112,8 @@ class PaymentServiceImplTest {
         when(checkoutSettlementService.confirmCheckoutSession(sessionId, "COD")).thenReturn(false);
 
         AppException exception = assertThrows(AppException.class, () ->
-                paymentService.initiatePayment(buyerId, new InitiatePaymentRequest(sessionId, PaymentMethod.COD)));
+                paymentService.initiatePayment(buyerId, new InitiatePaymentRequest(sessionId, PaymentMethod.COD),
+                        CLIENT_IP));
         assertEquals(ErrorCode.CHECKOUT_SESSION_NOT_PAYABLE, exception.getErrorCode());
     }
 
@@ -121,10 +124,11 @@ class PaymentServiceImplTest {
         when(timeoutProperties.getAttemptTimeoutMinutes()).thenReturn(15);
         when(paymentAttemptRepository.saveAndFlush(any(PaymentAttempt.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
-        when(paymentUrlBuilder.buildPaymentUrl(any(PaymentAttempt.class))).thenReturn("https://sandbox.vnpay/url");
+        when(paymentUrlBuilder.buildPaymentUrl(any(PaymentAttempt.class), eq(CLIENT_IP)))
+                .thenReturn("https://sandbox.vnpay/url");
 
         PaymentStatusResponse response = paymentService.initiatePayment(
-                buyerId, new InitiatePaymentRequest(sessionId, PaymentMethod.VNPAY));
+                buyerId, new InitiatePaymentRequest(sessionId, PaymentMethod.VNPAY), CLIENT_IP);
 
         assertEquals(PaymentAttemptStatus.PENDING.name(), response.status());
         assertEquals("https://sandbox.vnpay/url", response.nextAction());
@@ -137,10 +141,10 @@ class PaymentServiceImplTest {
         when(checkoutSettlementService.findSessionPaymentInfo(sessionId)).thenReturn(Optional.of(pendingSession));
         when(paymentAttemptRepository.findAllByCheckoutSessionIdOrderByCreatedAtDesc(sessionId))
                 .thenReturn(List.of(existing));
-        when(paymentUrlBuilder.buildPaymentUrl(existing)).thenReturn("https://sandbox.vnpay/url");
+        when(paymentUrlBuilder.buildPaymentUrl(existing, CLIENT_IP)).thenReturn("https://sandbox.vnpay/url");
 
         PaymentStatusResponse response = paymentService.initiatePayment(
-                buyerId, new InitiatePaymentRequest(sessionId, PaymentMethod.VNPAY));
+                buyerId, new InitiatePaymentRequest(sessionId, PaymentMethod.VNPAY), CLIENT_IP);
 
         assertEquals(existing.getId(), response.paymentAttemptId());
         verify(paymentAttemptRepository, never()).saveAndFlush(any());
@@ -154,7 +158,8 @@ class PaymentServiceImplTest {
                 .thenReturn(List.of(existing));
 
         AppException exception = assertThrows(AppException.class, () ->
-                paymentService.initiatePayment(buyerId, new InitiatePaymentRequest(sessionId, PaymentMethod.COD)));
+                paymentService.initiatePayment(buyerId, new InitiatePaymentRequest(sessionId, PaymentMethod.COD),
+                        CLIENT_IP));
         assertEquals(ErrorCode.PAYMENT_ATTEMPT_IN_PROGRESS, exception.getErrorCode());
     }
 
@@ -164,7 +169,7 @@ class PaymentServiceImplTest {
 
         AppException exception = assertThrows(AppException.class, () ->
                 paymentService.initiatePayment(UUID.randomUUID(),
-                        new InitiatePaymentRequest(sessionId, PaymentMethod.COD)));
+                        new InitiatePaymentRequest(sessionId, PaymentMethod.COD), CLIENT_IP));
         assertEquals(ErrorCode.CHECKOUT_NOT_FOUND, exception.getErrorCode());
     }
 
@@ -181,7 +186,8 @@ class PaymentServiceImplTest {
         when(checkoutSettlementService.findSessionPaymentInfo(sessionId)).thenReturn(Optional.of(completed));
 
         AppException exception = assertThrows(AppException.class, () ->
-                paymentService.initiatePayment(buyerId, new InitiatePaymentRequest(sessionId, PaymentMethod.COD)));
+                paymentService.initiatePayment(buyerId, new InitiatePaymentRequest(sessionId, PaymentMethod.COD),
+                        CLIENT_IP));
         assertEquals(ErrorCode.CHECKOUT_SESSION_NOT_PAYABLE, exception.getErrorCode());
     }
 
@@ -190,7 +196,7 @@ class PaymentServiceImplTest {
         when(checkoutSettlementService.findSessionPaymentInfo(sessionId)).thenReturn(Optional.of(pendingSession));
         when(paymentAttemptRepository.findAllByCheckoutSessionIdOrderByCreatedAtDesc(sessionId)).thenReturn(List.of());
 
-        PaymentStatusResponse response = paymentService.getPaymentStatus(sessionId, buyerId);
+        PaymentStatusResponse response = paymentService.getPaymentStatus(sessionId, buyerId, CLIENT_IP);
 
         assertEquals("NONE", response.status());
         assertNull(response.paymentAttemptId());
@@ -205,7 +211,7 @@ class PaymentServiceImplTest {
         when(paymentAttemptRepository.findAllByCheckoutSessionIdOrderByCreatedAtDesc(sessionId))
                 .thenReturn(List.of(attempt));
 
-        PaymentStatusResponse response = paymentService.getPaymentStatus(sessionId, buyerId);
+        PaymentStatusResponse response = paymentService.getPaymentStatus(sessionId, buyerId, CLIENT_IP);
 
         assertNotNull(response.paymentAttemptId());
         assertEquals(PaymentAttemptStatus.REQUIRES_RECONCILIATION.name(), response.status());
@@ -228,7 +234,7 @@ class PaymentServiceImplTest {
         when(paymentAttemptRepository.findAllByCheckoutSessionIdOrderByCreatedAtDesc(sessionId))
                 .thenReturn(List.of(attempt));
 
-        PaymentStatusResponse response = paymentService.getPaymentStatus(sessionId, buyerId);
+        PaymentStatusResponse response = paymentService.getPaymentStatus(sessionId, buyerId, CLIENT_IP);
 
         assertEquals(PaymentAttemptStatus.PENDING.name(), response.status());
         assertNull(response.nextAction(), "nextAction must be null when session is no longer payable");
@@ -249,7 +255,7 @@ class PaymentServiceImplTest {
         when(paymentAttemptRepository.findAllByCheckoutSessionIdOrderByCreatedAtDesc(sessionId))
                 .thenReturn(List.of(attempt));
 
-        PaymentStatusResponse response = paymentService.getPaymentStatus(sessionId, buyerId);
+        PaymentStatusResponse response = paymentService.getPaymentStatus(sessionId, buyerId, CLIENT_IP);
 
         assertNull(response.nextAction(), "nextAction must be null when session is cancelled");
     }

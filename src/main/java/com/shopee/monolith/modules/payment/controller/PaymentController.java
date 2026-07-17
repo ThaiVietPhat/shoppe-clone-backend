@@ -5,6 +5,7 @@ import com.shopee.monolith.common.exception.ErrorCode;
 import com.shopee.monolith.common.response.ApiResponse;
 import com.shopee.monolith.common.response.SwaggerResponses;
 import com.shopee.monolith.modules.auth.dto.internal.AccessTokenClaims;
+import com.shopee.monolith.modules.auth.security.ClientIpResolver;
 import com.shopee.monolith.modules.payment.dto.request.InitiatePaymentRequest;
 import com.shopee.monolith.modules.payment.dto.response.PaymentStatusResponse;
 import com.shopee.monolith.modules.payment.service.PaymentService;
@@ -13,6 +14,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -32,6 +34,7 @@ import java.util.UUID;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final ClientIpResolver clientIpResolver;
 
     @Operation(
             summary = "Initiate a payment attempt",
@@ -61,9 +64,11 @@ public class PaymentController {
     @PostMapping("/initiate")
     public ApiResponse<PaymentStatusResponse> initiatePayment(
             @Valid @RequestBody InitiatePaymentRequest request,
-            @AuthenticationPrincipal AccessTokenClaims claims) {
+            @AuthenticationPrincipal AccessTokenClaims claims,
+            HttpServletRequest httpRequest) {
         requireAuthenticated(claims);
-        return ApiResponse.success(paymentService.initiatePayment(claims.userId(), request));
+        String clientIp = clientIpResolver.resolveIp(httpRequest);
+        return ApiResponse.success(paymentService.initiatePayment(claims.userId(), request, clientIp));
     }
 
     @Operation(
@@ -86,9 +91,11 @@ public class PaymentController {
     @GetMapping("/status/{checkoutSessionId}")
     public ApiResponse<PaymentStatusResponse> getPaymentStatus(
             @PathVariable UUID checkoutSessionId,
-            @AuthenticationPrincipal AccessTokenClaims claims) {
+            @AuthenticationPrincipal AccessTokenClaims claims,
+            HttpServletRequest httpRequest) {
         requireAuthenticated(claims);
-        return ApiResponse.success(paymentService.getPaymentStatus(checkoutSessionId, claims.userId()));
+        String clientIp = clientIpResolver.resolveIp(httpRequest);
+        return ApiResponse.success(paymentService.getPaymentStatus(checkoutSessionId, claims.userId(), clientIp));
     }
 
     private void requireAuthenticated(AccessTokenClaims claims) {

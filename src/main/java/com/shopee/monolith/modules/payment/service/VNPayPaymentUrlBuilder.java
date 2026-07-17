@@ -28,13 +28,14 @@ public class VNPayPaymentUrlBuilder {
     private final VNPayProperties properties;
     private final VNPaySignatureVerifier signatureVerifier;
 
-    public String buildPaymentUrl(PaymentAttempt attempt) {
+    public String buildPaymentUrl(PaymentAttempt attempt, String clientIp) {
         Map<String, String> params = new TreeMap<>();
         params.put("vnp_Version", "2.1.0");
         params.put("vnp_Command", "pay");
         params.put("vnp_TmnCode", properties.getTmnCode());
         params.put("vnp_Amount", attempt.getAmount().multiply(BigDecimal.valueOf(100)).toBigInteger().toString());
         params.put("vnp_CurrCode", attempt.getCurrency());
+        params.put("vnp_IpAddr", clientIp);
         params.put("vnp_TxnRef", attempt.getId().toString());
         params.put("vnp_OrderInfo", "Checkout " + attempt.getCheckoutSessionId());
         params.put("vnp_OrderType", "other");

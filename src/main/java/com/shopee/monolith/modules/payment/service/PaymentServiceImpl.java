@@ -36,7 +36,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
-    public PaymentStatusResponse initiatePayment(UUID buyerId, InitiatePaymentRequest request) {
+    public PaymentStatusResponse initiatePayment(UUID buyerId, InitiatePaymentRequest request, String clientIp) {
         CheckoutSessionPaymentInfo session = loadOwnedSession(request.checkoutSessionId(), buyerId);
         if (session.status() != CheckoutSessionStatus.PENDING_PAYMENT) {
             throw new AppException(ErrorCode.CHECKOUT_SESSION_NOT_PAYABLE);
@@ -48,18 +48,18 @@ public class PaymentServiceImpl implements PaymentService {
             if (existing.getMethod() != request.method()) {
                 throw new AppException(ErrorCode.PAYMENT_ATTEMPT_IN_PROGRESS);
             }
-            return toResponse(session, existing);
+            return toResponse(session, existing, clientIp);
         }
 
         if (request.method() == PaymentMethod.COD) {
             return initiateCod(session);
         }
-        return initiateVnpay(session);
+        return initiateVnpay(session, clientIp);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public PaymentStatusResponse getPaymentStatus(UUID checkoutSessionId, UUID buyerId) {
+    public PaymentStatusResponse getPaymentStatus(UUID checkoutSessionId, UUID buyerId, String clientIp) {
         CheckoutSessionPaymentInfo session = loadOwnedSession(checkoutSessionId, buyerId);
         PaymentAttempt latest = paymentAttemptRepository
                 .findAllByCheckoutSessionIdOrderByCreatedAtDesc(checkoutSessionId)
@@ -71,7 +71,7 @@ public class PaymentServiceImpl implements PaymentService {
                     .orderIds(session.orderIds())
                     .build();
         }
-        return toResponse(session, latest);
+        return toResponse(session, latest, clientIp);
     }
 
     private PaymentStatusResponse initiateCod(CheckoutSessionPaymentInfo session) {
@@ -84,14 +84,14 @@ public class PaymentServiceImpl implements PaymentService {
             throw new AppException(ErrorCode.CHECKOUT_SESSION_NOT_PAYABLE);
         }
         log.info("COD payment attempt {} confirmed checkout session {}", attempt.getId(), session.checkoutSessionId());
-        return toResponse(session, attempt);
+        return toResponse(session, attempt, null);
     }
 
-    private PaymentStatusResponse initiateVnpay(CheckoutSessionPaymentInfo session) {
+    private PaymentStatusResponse initiateVnpay(CheckoutSessionPaymentInfo session, String clientIp) {
         try {
             PaymentAttempt attempt = paymentAttemptRepository.saveAndFlush(
                     newAttempt(session, PaymentMethod.VNPAY, PaymentAttemptStatus.PENDING));
-            return toResponse(session, attempt);
+            return toResponse(session, attempt, clientIp);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             // Partial unique index: another non-terminal attempt won the race
             throw new AppException(ErrorCode.PAYMENT_ATTEMPT_IN_PROGRESS);
@@ -127,23 +127,24 @@ public class PaymentServiceImpl implements PaymentService {
         return session;
     }
 
-    private PaymentStatusResponse toResponse(CheckoutSessionPaymentInfo session, PaymentAttempt attempt) {
+    private PaymentStatusResponse toResponse(CheckoutSessionPaymentInfo session, PaymentAttempt attempt,
+                                              String clientIp) {
         return PaymentStatusResponse.builder()
                 .checkoutSessionId(session.checkoutSessionId())
                 .paymentAttemptId(attempt.getId())
                 .status(attempt.getStatus().name())
                 .orderIds(session.orderIds())
-                .nextAction(resolveNextAction(session, attempt))
+                .nextAction(resolveNextAction(session, attempt, clientIp))
                 .expiresAt(attempt.getExpiresAt())
                 .reconciliationReason(attempt.getReconciliationReason())
                 .build();
     }
 
-    private String resolveNextAction(CheckoutSessionPaymentInfo session, PaymentAttempt attempt) {
+    private String resolveNextAction(CheckoutSessionPaymentInfo session, PaymentAttempt attempt, String clientIp) {
         if (attempt.getMethod() == PaymentMethod.VNPAY
                 && attempt.getStatus() == PaymentAttemptStatus.PENDING
                 && session.status() == CheckoutSessionStatus.PENDING_PAYMENT) {
-            return paymentUrlBuilder.buildPaymentUrl(attempt);
+            return paymentUrlBuilder.buildPaymentUrl(attempt, clientIp);
         }
         return null;
     }
