@@ -1,5 +1,7 @@
 package com.shopee.monolith.modules.recommendation.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shopee.monolith.common.response.PagedResponse;
 import com.shopee.monolith.modules.cart.dto.internal.CartSnapshot;
 import com.shopee.monolith.modules.cart.dto.internal.CartSnapshotItem;
@@ -9,10 +11,12 @@ import com.shopee.monolith.modules.order.dto.response.BuyerOrderSummaryResponse;
 import com.shopee.monolith.modules.order.service.BuyerOrderService;
 import com.shopee.monolith.modules.product.dto.response.ProductCardResponse;
 import com.shopee.monolith.modules.product.service.ProductService;
+import com.shopee.monolith.modules.recommendation.config.RecommendationProperties;
 import com.shopee.monolith.modules.recommendation.dto.ChatRecommendRequest;
 import com.shopee.monolith.modules.recommendation.dto.RecommendationReasonCode;
 import com.shopee.monolith.modules.recommendation.dto.RecommendationResponse;
 import com.shopee.monolith.modules.recommendation.dto.RecommendedProductResponse;
+import com.shopee.monolith.modules.recommendation.dto.internal.CachedRecommendationItem;
 import com.shopee.monolith.modules.search.repository.ProductEmbeddingRepository;
 import com.shopee.monolith.modules.search.service.EmbeddingIndexServiceImpl;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +25,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,6 +62,9 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final ObjectProvider<EmbeddingModel> embeddingModelProvider;
     private final ObjectProvider<ChatClient.Builder> chatClientBuilderProvider;
     private final com.shopee.monolith.common.observability.DemoMetrics demoMetrics;
+    private final StringRedisTemplate stringRedisTemplate;
+    private final ObjectMapper objectMapper;
+    private final RecommendationProperties recommendationProperties;
 
     @Override
     public RecommendationResponse homeRecommendations(UUID userId, int page, int size) {
@@ -84,11 +92,81 @@ public class RecommendationServiceImpl implements RecommendationService {
             addCards(reasons, orderCards, RecommendationReasonCode.SIMILAR_TO_ORDER);
             addCards(reasons, fallback, RecommendationReasonCode.TRENDING);
             List<RecommendedProductResponse> items = toItems(reasons, safeSize);
+            cacheHomeRecommendations(userId, items);
             return RecommendationResponse.builder().items(items).degraded(false).build();
         } catch (Exception ex) {
             log.warn("Home recommendation vector retrieval failed: {}", ex.getMessage());
+            demoMetrics.incrementAiFallback();
+            List<RecommendedProductResponse> cached = readCachedHomeRecommendations(userId);
+            if (!cached.isEmpty()) {
+                return RecommendationResponse.builder()
+                        .items(cached)
+                        .degraded(true)
+                        .degradedReason(DEGRADED_REASON_AI)
+                        .build();
+            }
             return responseFromCards(fallback, RecommendationReasonCode.TRENDING, true, DEGRADED_REASON_AI, null);
         }
+    }
+
+    /**
+     * Keeps the last AI-backed home recommendation per user so a transient AI outage degrades
+     * to "last known good" instead of silently reverting to the newest-products fallback.
+     */
+    private void cacheHomeRecommendations(UUID userId, List<RecommendedProductResponse> items) {
+        if (items.isEmpty()) {
+            return;
+        }
+        try {
+            List<CachedRecommendationItem> cacheItems = items.stream()
+                    .map(item -> CachedRecommendationItem.builder()
+                            .productId(item.product().id())
+                            .reasonCodes(item.reasonCodes())
+                            .build())
+                    .toList();
+            String json = objectMapper.writeValueAsString(cacheItems);
+            stringRedisTemplate.opsForValue().set(homeCacheKey(userId), json, recommendationProperties.getHomeCacheTtl());
+        } catch (Exception ex) {
+            log.warn("Failed to cache home recommendations for user {}: {}", userId, ex.getMessage());
+        }
+    }
+
+    private List<RecommendedProductResponse> readCachedHomeRecommendations(UUID userId) {
+        try {
+            String json = stringRedisTemplate.opsForValue().get(homeCacheKey(userId));
+            if (json == null || json.isBlank()) {
+                return List.of();
+            }
+            List<CachedRecommendationItem> cacheItems = objectMapper.readValue(
+                    json, new TypeReference<List<CachedRecommendationItem>>() { });
+            return hydrateCachedItems(cacheItems);
+        } catch (Exception ex) {
+            log.warn("Failed to read cached home recommendations for user {}: {}", userId, ex.getMessage());
+            return List.of();
+        }
+    }
+
+    private List<RecommendedProductResponse> hydrateCachedItems(List<CachedRecommendationItem> cacheItems) {
+        if (cacheItems.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> productIds = cacheItems.stream().map(CachedRecommendationItem::productId).toList();
+        Map<UUID, ProductCardResponse> cards = productService.loadActiveProductCards(productIds).stream()
+                .collect(LinkedHashMap::new, (map, card) -> map.put(card.id(), card), LinkedHashMap::putAll);
+        return cacheItems.stream()
+                .map(cacheItem -> {
+                    ProductCardResponse card = cards.get(cacheItem.productId());
+                    return card == null ? null : RecommendedProductResponse.builder()
+                            .product(card)
+                            .reasonCodes(cacheItem.reasonCodes())
+                            .build();
+                })
+                .filter(java.util.Objects::nonNull)
+                .toList();
+    }
+
+    private String homeCacheKey(UUID userId) {
+        return "recommendation:home:" + userId;
     }
 
     @Override

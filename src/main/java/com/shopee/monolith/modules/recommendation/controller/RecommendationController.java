@@ -36,7 +36,9 @@ public class RecommendationController {
     @Operation(
             summary = "Home recommendations",
             description = "Returns product cards with reason codes. Anonymous users receive deterministic trending "
-                    + "recommendations; authenticated users also use cart signals and pgvector similarity when available.",
+                    + "recommendations; authenticated users also use cart signals and pgvector similarity when available. "
+                    + "If AI retrieval fails for a user with a prior successful AI recommendation, the last known-good "
+                    + "result is served instead (degraded=true) rather than reverting to the trending fallback.",
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponse(

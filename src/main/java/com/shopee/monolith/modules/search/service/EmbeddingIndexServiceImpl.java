@@ -45,11 +45,12 @@ public class EmbeddingIndexServiceImpl implements EmbeddingIndexService {
             productEmbeddingRepository.upsert(event.productId(), pgvectorLiteral, MODEL_VERSION, Instant.now());
             log.debug("Embedding upsert OK productId={}", event.productId());
         } catch (Exception ex) {
-            // Do not rethrow: AI provider failures must not crash the event listener.
-            // Spring Modulith publication log will replay after provider recovers.
+            demoMetrics.incrementIndexingFailure();
             log.warn("Embedding indexing failed for productId={} — will retry via publication replay: {}",
                     event.productId(), ex.getMessage());
-            demoMetrics.incrementIndexingFailure();
+            // Rethrow so Modulith leaves the publication log in an incomplete state for replay;
+            // swallowing here would mark the publication complete and the embedding would be lost forever.
+            throw new IllegalStateException("Embedding indexing failed for product " + event.productId(), ex);
         }
     }
 

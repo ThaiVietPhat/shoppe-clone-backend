@@ -27,6 +27,7 @@ import com.shopee.monolith.modules.product.dto.internal.VariantCartSummaryData;
 import com.shopee.monolith.modules.product.service.ProductService;
 import com.shopee.monolith.modules.user.dto.internal.ShopLookupData;
 import com.shopee.monolith.modules.user.service.ShopService;
+import com.shopee.monolith.modules.voucher.service.VoucherService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -56,6 +57,7 @@ public class BuyerOrderServiceImpl implements BuyerOrderService {
     private final ProductService productService;
     private final BuyerOrderMapper buyerOrderMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final VoucherService voucherService;
 
     @Override
     @Transactional(readOnly = true)
@@ -177,6 +179,7 @@ public class BuyerOrderServiceImpl implements BuyerOrderService {
 
         session.cancel();
         checkoutSessionRepository.save(session);
+        voucherService.releaseVoucherUsage(sessionId);
 
         // Publish event so PaymentModule can expire non-terminal attempts after this transaction commits.
         // Deferred to AFTER_COMMIT to avoid holding session lock while touching payment_attempt rows

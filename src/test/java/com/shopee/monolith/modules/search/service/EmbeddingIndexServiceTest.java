@@ -18,6 +18,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -132,18 +133,20 @@ class EmbeddingIndexServiceTest {
     }
 
     @Test
-    void indexProductWhenProviderThrowsShouldNotPropagateException() {
+    void indexProductWhenProviderThrowsShouldRethrowForModulithReplay() {
         when(embeddingModel.embed(anyString())).thenThrow(new RuntimeException("AI provider unavailable"));
 
         ProductCatalogSnapshotEvent event = buildEvent("TV", "4K TV", "Electronics", "Samsung", Map.of());
 
-        // Must not throw — provider failures are logged and swallowed
-        assertDoesNotThrow(() -> embeddingIndexService.indexProduct(event));
+        // Must rethrow — swallowing here would mark the Modulith publication complete,
+        // so a temporary AI outage would lose the embedding forever instead of being replayed.
+        assertThrows(IllegalStateException.class, () -> embeddingIndexService.indexProduct(event));
         verify(productEmbeddingRepository, never()).upsert(any(), anyString(), anyString(), any());
+        verify(demoMetrics).incrementIndexingFailure();
     }
 
     @Test
-    void indexProductWhenRepositoryThrowsShouldNotPropagateException() {
+    void indexProductWhenRepositoryThrowsShouldRethrowForModulithReplay() {
         float[] embedding = new float[768];
         when(embeddingModel.embed(anyString())).thenReturn(embedding);
         doThrow(new RuntimeException("DB upsert failed"))
@@ -151,7 +154,8 @@ class EmbeddingIndexServiceTest {
 
         ProductCatalogSnapshotEvent event = buildEvent("TV", "4K TV", "Electronics", "Samsung", Map.of());
 
-        assertDoesNotThrow(() -> embeddingIndexService.indexProduct(event));
+        assertThrows(IllegalStateException.class, () -> embeddingIndexService.indexProduct(event));
+        verify(demoMetrics).incrementIndexingFailure();
     }
 
     @Test

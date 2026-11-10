@@ -107,14 +107,27 @@ public class ChatServiceImpl implements ChatService {
     @Override
     @Transactional
     public ChatMessageResponse sendMessage(UUID userId, UUID roomId, String content) {
-        requireParticipant(userId, loadRoom(roomId));
+        ChatRoom room = loadRoom(roomId);
+        requireParticipant(userId, room);
         ChatMessage message = chatMessageRepository.save(ChatMessage.builder()
                 .roomId(roomId)
                 .senderId(userId)
                 .content(content)
                 .build());
+        chatRoomRepository.save(room);
         ChatMessageResponse response = chatMapper.toMessageResponse(message);
-        messagingTemplate.convertAndSend(ROOM_TOPIC_PREFIX + roomId, response);
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            messagingTemplate.convertAndSend(ROOM_TOPIC_PREFIX + roomId, response);
+                        }
+                    }
+            );
+        } else {
+            messagingTemplate.convertAndSend(ROOM_TOPIC_PREFIX + roomId, response);
+        }
         return response;
     }
 

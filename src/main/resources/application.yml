@@ -119,6 +119,8 @@ app:
   cart:
     ttl: 7d
     max-quantity-per-item: 99
+  recommendation:
+    home-cache-ttl: 30d                              # Giữ AI recommendation thành công gần nhất khi AI tạm thời fail
   notification:
     verification-url: ${FRONTEND_VERIFICATION_URL:http://localhost:3000/verify-email}
     password-reset-url: ${FRONTEND_PASSWORD_RESET_URL:http://localhost:3000/reset-password}

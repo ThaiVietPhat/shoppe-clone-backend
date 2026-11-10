@@ -52,7 +52,7 @@ public class VNPayPaymentUrlBuilder {
             }
             query.append(entry.getKey())
                     .append('=')
-                    .append(URLEncoder.encode(entry.getValue(), StandardCharsets.US_ASCII));
+                    .append(URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8));
         }
         query.append("&vnp_SecureHash=").append(secureHash);
         return properties.getPayUrl() + "?" + query;

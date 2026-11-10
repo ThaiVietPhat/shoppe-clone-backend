@@ -58,7 +58,7 @@ public class VNPaySignatureVerifier {
             }
             hashData.append(entry.getKey())
                     .append('=')
-                    .append(URLEncoder.encode(entry.getValue(), StandardCharsets.US_ASCII));
+                    .append(URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8));
         }
         return hashData.toString();
     }

@@ -11,6 +11,7 @@ import com.shopee.monolith.modules.order.model.InventoryReservationStatus;
 import com.shopee.monolith.modules.order.repository.CheckoutSessionRepository;
 import com.shopee.monolith.modules.order.repository.InventoryReservationRepository;
 import com.shopee.monolith.modules.order.repository.OrderRepository;
+import com.shopee.monolith.modules.voucher.service.VoucherService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -33,6 +34,7 @@ public class CheckoutTimeoutProcessor {
     private final OrderRepository orderRepository;
     private final InventoryService inventoryService;
     private final ApplicationEventPublisher eventPublisher;
+    private final VoucherService voucherService;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void processTimeout(UUID sessionId, Instant now) {
@@ -84,6 +86,7 @@ public class CheckoutTimeoutProcessor {
         // 4. Update session
         session.expire();
         checkoutSessionRepository.save(session);
+        voucherService.releaseVoucherUsage(sessionId);
         log.info("Checkout session {} is now EXPIRED", sessionId);
 
         // Expire any pending payment attempts after this REQUIRES_NEW transaction commits.

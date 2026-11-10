@@ -1,5 +1,6 @@
 package com.shopee.monolith.modules.recommendation.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shopee.monolith.common.response.PagedResponse;
 import com.shopee.monolith.modules.cart.dto.internal.CartSnapshot;
 import com.shopee.monolith.modules.cart.dto.internal.CartSnapshotItem;
@@ -11,17 +12,22 @@ import com.shopee.monolith.modules.order.service.BuyerOrderService;
 import com.shopee.monolith.modules.product.dto.response.ProductCardResponse;
 import com.shopee.monolith.modules.product.entity.ProductStatus;
 import com.shopee.monolith.modules.product.service.ProductService;
+import com.shopee.monolith.modules.recommendation.config.RecommendationProperties;
 import com.shopee.monolith.modules.recommendation.dto.ChatRecommendRequest;
 import com.shopee.monolith.modules.recommendation.dto.RecommendationReasonCode;
 import com.shopee.monolith.modules.recommendation.dto.RecommendationResponse;
+import com.shopee.monolith.modules.recommendation.dto.internal.CachedRecommendationItem;
 import com.shopee.monolith.modules.search.repository.ProductEmbeddingRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -32,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -46,6 +53,8 @@ class RecommendationServiceImplTest {
     private ProductEmbeddingRepository productEmbeddingRepository;
     private ObjectProvider<EmbeddingModel> embeddingModelProvider;
     private ObjectProvider<ChatClient.Builder> chatClientBuilderProvider;
+    private StringRedisTemplate stringRedisTemplate;
+    private ValueOperations<String, String> valueOperations;
     private RecommendationServiceImpl service;
 
     private UUID productId;
@@ -62,6 +71,9 @@ class RecommendationServiceImplTest {
         productEmbeddingRepository = mock(ProductEmbeddingRepository.class);
         embeddingModelProvider = mock(ObjectProvider.class);
         chatClientBuilderProvider = mock(ObjectProvider.class);
+        stringRedisTemplate = mock(StringRedisTemplate.class);
+        valueOperations = mock(ValueOperations.class);
+        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
         service = new RecommendationServiceImpl(
                 productService,
                 cartService,
@@ -70,7 +82,10 @@ class RecommendationServiceImplTest {
                 embeddingModelProvider,
                 chatClientBuilderProvider,
                 new com.shopee.monolith.common.observability.DemoMetrics(
-                        new io.micrometer.core.instrument.simple.SimpleMeterRegistry()));
+                        new io.micrometer.core.instrument.simple.SimpleMeterRegistry()),
+                stringRedisTemplate,
+                new ObjectMapper(),
+                new RecommendationProperties());
 
         productId = UUID.randomUUID();
         semanticProductId = UUID.randomUUID();
@@ -170,6 +185,74 @@ class RecommendationServiceImplTest {
         assertFalse(response.degraded());
         assertEquals(1, response.items().size());
         assertTrue(response.items().get(0).reasonCodes().contains(RecommendationReasonCode.SIMILAR_TO_ORDER));
+    }
+
+    @Test
+    void homeRecommendationsWhenSemanticSucceedsShouldCacheResultForUser() {
+        UUID userId = UUID.randomUUID();
+        EmbeddingModel embeddingModel = mock(EmbeddingModel.class);
+        when(cartService.getSnapshot(userId)).thenReturn(CartSnapshot.builder()
+                .userId(userId)
+                .items(List.of(CartSnapshotItem.builder().variantId(variantId).quantity(1).build()))
+                .version(1)
+                .build());
+        when(productService.loadActiveProductCardsByVariantIds(List.of(variantId))).thenReturn(List.of(fallbackCard));
+        when(embeddingModelProvider.getIfAvailable()).thenReturn(embeddingModel);
+        when(embeddingModel.embed(any(String.class))).thenReturn(new float[]{0.1f, 0.2f});
+        when(productEmbeddingRepository.findSimilarProductIdStrings(any(String.class), eq(80)))
+                .thenReturn(List.of(semanticProductId.toString()));
+
+        service.homeRecommendations(userId, 0, 20);
+
+        verify(valueOperations).set(
+                eq("recommendation:home:" + userId), anyString(), eq(Duration.ofDays(30)));
+    }
+
+    @Test
+    void homeRecommendationsWhenAiFailsAndCacheExistsShouldReturnCachedRecommendationsDegraded() throws Exception {
+        UUID userId = UUID.randomUUID();
+        when(cartService.getSnapshot(userId)).thenReturn(CartSnapshot.builder()
+                .userId(userId)
+                .items(List.of(CartSnapshotItem.builder().variantId(variantId).quantity(1).build()))
+                .version(1)
+                .build());
+        when(productService.loadActiveProductCardsByVariantIds(List.of(variantId))).thenReturn(List.of(fallbackCard));
+        when(embeddingModelProvider.getIfAvailable()).thenReturn(null);
+        String cachedJson = new ObjectMapper().writeValueAsString(List.of(
+                CachedRecommendationItem.builder()
+                        .productId(semanticProductId)
+                        .reasonCodes(List.of(RecommendationReasonCode.AI_SEMANTIC_MATCH))
+                        .build()));
+        when(valueOperations.get("recommendation:home:" + userId)).thenReturn(cachedJson);
+
+        RecommendationResponse response = service.homeRecommendations(userId, 0, 20);
+
+        assertTrue(response.degraded());
+        assertEquals(RecommendationServiceImpl.DEGRADED_REASON_AI, response.degradedReason());
+        assertEquals(1, response.items().size());
+        assertEquals(semanticProductId, response.items().get(0).product().id());
+        assertEquals(List.of(RecommendationReasonCode.AI_SEMANTIC_MATCH), response.items().get(0).reasonCodes());
+    }
+
+    @Test
+    void homeRecommendationsWhenAiFailsAndNoCacheShouldFallBackToNewestProductsDegraded() {
+        UUID userId = UUID.randomUUID();
+        when(cartService.getSnapshot(userId)).thenReturn(CartSnapshot.builder()
+                .userId(userId)
+                .items(List.of(CartSnapshotItem.builder().variantId(variantId).quantity(1).build()))
+                .version(1)
+                .build());
+        when(productService.loadActiveProductCardsByVariantIds(List.of(variantId))).thenReturn(List.of(fallbackCard));
+        when(embeddingModelProvider.getIfAvailable()).thenReturn(null);
+        when(valueOperations.get("recommendation:home:" + userId)).thenReturn(null);
+
+        RecommendationResponse response = service.homeRecommendations(userId, 0, 20);
+
+        assertTrue(response.degraded());
+        assertEquals(RecommendationServiceImpl.DEGRADED_REASON_AI, response.degradedReason());
+        assertEquals(1, response.items().size());
+        assertEquals(productId, response.items().get(0).product().id());
+        assertEquals(List.of(RecommendationReasonCode.TRENDING), response.items().get(0).reasonCodes());
     }
 
     @Test

@@ -85,3 +85,8 @@ replay_pid*
 report/
 reports/
 DESIGN.md
+
+# ==================== E2E Automation Artifacts ====================
+scripts/node_modules/
+scripts/*.png
+scripts/*.json
