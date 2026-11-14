@@ -167,11 +167,16 @@ public class ProductServiceImpl implements ProductService {
         Category root = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_NOT_FOUND));
 
-        // Collect root + all descendants via materialized path prefix
-        String pathPrefix = root.getPath() + "/";
-        List<UUID> subtreeCategoryIds = categoryRepository.findAllByPathStartingWith(pathPrefix)
-                .stream().map(Category::getId).collect(Collectors.toList());
-        subtreeCategoryIds.add(root.getId());
+        // Collect root + all descendants via materialized path prefixes ("/" and " > ")
+        LinkedHashSet<UUID> subtreeIdSet = new LinkedHashSet<>();
+        subtreeIdSet.add(root.getId());
+        if (root.getPath() != null && !root.getPath().isBlank()) {
+            categoryRepository.findAllByPathStartingWith(root.getPath() + "/")
+                    .forEach(c -> subtreeIdSet.add(c.getId()));
+            categoryRepository.findAllByPathStartingWith(root.getPath() + " > ")
+                    .forEach(c -> subtreeIdSet.add(c.getId()));
+        }
+        List<UUID> subtreeCategoryIds = List.copyOf(subtreeIdSet);
 
         Pageable pageable = buildPageableForSort(page, size, sort != null ? sort : ProductSortOrder.NEWEST);
         Page<Product> productPage = productRepository.findAllByStatusAndCategoryIdIn(

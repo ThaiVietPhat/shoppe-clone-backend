@@ -866,4 +866,48 @@ class ProductServiceImplTest {
 
         assertEquals(7, result.totalAvailableStock());
     }
+
+    @Test
+    void listActiveProductsByCategoryShouldIncludeArrowSeparatedSubcategories() {
+        UUID childId = UUID.randomUUID();
+        Category parentCat = Category.builder()
+                .id(categoryId)
+                .name("Điện tử")
+                .path("Điện tử")
+                .build();
+        Category childCat = Category.builder()
+                .id(childId)
+                .parentId(categoryId)
+                .name("Phụ kiện")
+                .path("Điện tử > Phụ kiện")
+                .build();
+        Product childProduct = Product.builder()
+                .id(productId)
+                .shopId(shopId)
+                .categoryId(childId)
+                .status(ProductStatus.ACTIVE)
+                .name("Tai nghe")
+                .build();
+        Page<Product> productPage = new PageImpl<>(
+                List.of(childProduct), PageRequest.of(0, 20), 1);
+
+        when(categoryRepository.findById(categoryId)).thenReturn(Optional.of(parentCat));
+        when(categoryRepository.findAllByPathStartingWith("Điện tử/")).thenReturn(List.of());
+        when(categoryRepository.findAllByPathStartingWith("Điện tử > ")).thenReturn(List.of(childCat));
+        when(productRepository.findAllByStatusAndCategoryIdIn(
+                any(), any(), any(Pageable.class))).thenReturn(productPage);
+        when(productVariantRepository.findAllByProductIdIn(List.of(productId)))
+                .thenReturn(List.of(variant));
+        when(shopService.findShopLookupDataByIds(any())).thenReturn(Map.of(shopId, shopLookup));
+        when(categoryRepository.findAllById(List.of(childId))).thenReturn(List.of(childCat));
+
+        PagedResponse<ProductCardResponse> response =
+                productService.listActiveProductsByCategory(categoryId, null, 0, 20);
+
+        assertEquals(1, response.totalElements());
+        verify(productRepository).findAllByStatusAndCategoryIdIn(
+                any(),
+                org.mockito.ArgumentMatchers.argThat(ids -> ids.contains(categoryId) && ids.contains(childId)),
+                any(Pageable.class));
+    }
 }

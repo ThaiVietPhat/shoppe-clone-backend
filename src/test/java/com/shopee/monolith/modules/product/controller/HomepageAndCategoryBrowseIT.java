@@ -255,4 +255,39 @@ class HomepageAndCategoryBrowseIT extends BasePostgresRedisIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items").isArray());
     }
+
+    @Test
+    void listProductsByCategoryShouldIncludeArrowSeparatedSubcategoryProducts() throws Exception {
+        Category arrowChild = categoryRepository.save(Category.builder()
+                .name("Accessories")
+                .parentId(parentCategory.getId())
+                .path("Electronics > Accessories")
+                .build());
+        Product arrowChildProduct = productRepository.save(Product.builder()
+                .shopId(shop.getId())
+                .categoryId(arrowChild.getId())
+                .name("Arrow Child Product")
+                .status(ProductStatus.ACTIVE)
+                .minPrice(BigDecimal.valueOf(150))
+                .maxPrice(BigDecimal.valueOf(150))
+                .build());
+        productVariantRepository.save(ProductVariant.builder()
+                .productId(arrowChildProduct.getId())
+                .sku("ARROW-001")
+                .name("Standard")
+                .price(BigDecimal.valueOf(150))
+                .build());
+
+        try {
+            mockMvc.perform(get("/api/categories/{categoryId}/products", parentCategory.getId())
+                            .param("page", "0")
+                            .param("size", "20"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.totalElements").value(3));
+        } finally {
+            productVariantRepository.deleteAll();
+            productRepository.deleteAll();
+            categoryRepository.deleteById(arrowChild.getId());
+        }
+    }
 }
