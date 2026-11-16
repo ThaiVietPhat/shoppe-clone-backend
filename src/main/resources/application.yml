@@ -87,10 +87,11 @@ spring:
           api-key: ${GOOGLE_AI_API_KEY}
           text:
             options:
-              model: text-embedding-004
-      chat:
-        options:
-          model: gemini-1.5-flash
+              model: gemini-embedding-001
+              dimensions: 768
+        chat:
+          options:
+            model: gemini-3.5-flash
 
 management:
   endpoints:

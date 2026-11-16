@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class EmbeddingIndexServiceImpl implements EmbeddingIndexService {
 
-    static final String MODEL_VERSION = "text-embedding-004";
+    static final String MODEL_VERSION = "gemini-embedding-001";
     /** Maximum characters taken from description to keep prompt size bounded. */
     private static final int MAX_DESCRIPTION_CHARS = 500;
 

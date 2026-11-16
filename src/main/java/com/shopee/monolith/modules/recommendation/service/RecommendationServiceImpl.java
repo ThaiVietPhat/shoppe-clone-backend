@@ -300,13 +300,6 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .filter(ProductCardResponse::checkoutEligible)
                 .filter(card -> request.minPrice() == null || priceOrZero(card).compareTo(request.minPrice()) >= 0)
                 .filter(card -> request.maxPrice() == null || priceOrZero(card).compareTo(request.maxPrice()) <= 0)
-                .sorted((a, b) -> {
-                    int ratingCompare = nullSafeRating(b).compareTo(nullSafeRating(a));
-                    if (ratingCompare != 0) {
-                        return ratingCompare;
-                    }
-                    return b.createdAt().compareTo(a.createdAt());
-                })
                 .limit(limit)
                 .toList();
     }
@@ -357,11 +350,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     private boolean isShoppingIntent(String message) {
-        String lower = message.toLowerCase();
-        return lower.contains("buy") || lower.contains("find") || lower.contains("recommend")
-                || lower.contains("suggest") || lower.contains("under") || lower.contains("cheap")
-                || lower.contains("mua") || lower.contains("tìm") || lower.contains("goi y")
-                || lower.contains("gợi ý") || lower.contains("dưới") || lower.contains("rẻ");
+        return message != null && !message.isBlank();
     }
 
     private String buildInterestQuery(List<ProductCardResponse> cards) {
@@ -418,10 +407,6 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     private BigDecimal priceOrZero(ProductCardResponse card) {
         return card.minPrice() != null ? card.minPrice() : BigDecimal.ZERO;
-    }
-
-    private BigDecimal nullSafeRating(ProductCardResponse card) {
-        return card.shopRating() != null ? card.shopRating() : BigDecimal.ZERO;
     }
 
     private String safe(String value) {
