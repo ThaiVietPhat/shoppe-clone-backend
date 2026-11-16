@@ -22,6 +22,8 @@ jobs:
           cache: 'maven'
 
       - name: Run Unit & Integration Tests + Enforce JaCoCo 80%
+        env:
+          DOCKER_API_VERSION: '1.44'
         run: mvn verify --no-transfer-progress
         # mvn verify chạy theo thứ tự:
         #   compile → test (unit/Surefire) → integration-test (IT/Failsafe) → verify (JaCoCo check)
