@@ -9,8 +9,10 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.ObjectError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import jakarta.validation.ConstraintViolationException;
 
 import java.util.stream.Collectors;
@@ -52,6 +54,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(400)
                 .body(ApiResponse.error(400, "Invalid request body format"));
+    }
+
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class})
+    public ResponseEntity<ApiResponse<Void>> handleBadParameterException(Exception ex) {
+        return ResponseEntity
+                .status(400)
+                .body(ApiResponse.error(ErrorCode.INVALID_REQUEST));
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)

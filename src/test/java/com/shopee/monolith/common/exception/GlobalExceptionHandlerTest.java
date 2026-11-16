@@ -10,13 +10,17 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
+
+import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -100,6 +104,22 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.message").value("Internal server error"));
     }
 
+    @Test
+    void shouldHandleMethodArgumentTypeMismatchException() throws Exception {
+        mockMvc.perform(get("/dummy/uuid/not-a-uuid"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("Invalid request"));
+    }
+
+    @Test
+    void shouldHandleMissingServletRequestParameterException() throws Exception {
+        mockMvc.perform(get("/dummy/required-param"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("Invalid request"));
+    }
+
     @RestController
     static class DummyController {
 
@@ -135,6 +155,14 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/dummy/unexpected")
         public void throwUnexpectedException() throws Exception {
             throw new Exception("Unexpected error");
+        }
+
+        @GetMapping("/dummy/uuid/{id}")
+        public void parseUuid(@PathVariable UUID id) {
+        }
+
+        @GetMapping("/dummy/required-param")
+        public void requireParam(@RequestParam String value) {
         }
     }
 
